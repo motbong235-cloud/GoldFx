@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#070b12">
+<link rel="icon" type="image/jpeg" href="/static/logo-icon.jpg">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#060a11;--panel:#0c121c;--card:#121a28;--elev:#182234;
+  --line:rgba(148,163,184,.12);--line2:rgba(251,191,36,.2);
+  --text:#eef2f7;--muted:#8b9cb3;--faint:#5b6b82;
+  --cyan:#22d3ee;--blue:#3b82f6;--green:#34d399;--red:#f87171;
+  --orange:#fb923c;--gold:#fbbf24;--purple:#a78bfa;
+  --font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r:14px;--safe:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13px;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+button,input,select{font-family:inherit;font-size:inherit}
+button{cursor:pointer;border:none;background:none;color:inherit}
+input,select{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);outline:none;transition:border .15s}
+input:focus,select:focus{border-color:rgba(251,191,36,.45)}
+a{color:var(--cyan);text-decoration:none}
+.hidden{display:none!important}
+
+/* ===== AUTH GATE ===== */
+.gate{position:fixed;inset:0;z-index:100;background:radial-gradient(ellipse at 30% 0%,rgba(251,191,36,.08),transparent 50%),var(--bg);display:flex;align-items:center;justify-content:center;padding:20px}
+.gate-card{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:28px 24px;box-shadow:0 24px 80px rgba(0,0,0,.5)}
+.gate-logo{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px}
+.gate-logo svg{width:40px;height:40px}
+.gate-logo span,.wm{font-weight:800;font-size:22px;letter-spacing:-.03em;color:#fff}
+.wm .fx{letter-spacing:-.04em}.wm .f-gold{color:#fbbf24}.wm .x-cyan{color:#22d3ee}
+.logo .wm{font-size:15px}
+.gate-sub{text-align:center;color:var(--muted);font-size:12px;margin-bottom:20px;line-height:1.5}
+.auth-tabs{display:flex;gap:6px;background:var(--card);padding:4px;border-radius:12px;margin-bottom:16px;border:1px solid var(--line)}
+.auth-tabs button{flex:1;padding:10px;border-radius:10px;font-weight:700;color:var(--muted);transition:.15s}
+.auth-tabs button.on{background:linear-gradient(135deg,rgba(251,191,36,.2),rgba(251,191,36,.08));color:var(--gold)}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.err{color:var(--red);font-size:12px;min-height:18px;margin:4px 0 8px}
+.btn-gold{width:100%;padding:13px;border-radius:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1200;font-weight:800;font-size:14px;transition:transform .1s,filter .15s}
+.btn-gold:active{transform:scale(.98)}
+.btn-gold:disabled{opacity:.6;cursor:wait}
+.btn-ghost{width:100%;padding:12px;border-radius:12px;background:var(--elev);border:1px solid var(--line);font-weight:600;margin-top:8px}
+.btn-outline{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-weight:600;display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+
+/* ===== APP SHELL ===== */
+.app{min-height:100vh;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(6,10,17,.92);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:40;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;letter-spacing:-.03em;flex-shrink:0}
+.logo svg{width:28px;height:28px}
+.badge-pro{font-size:9px;font-weight:800;padding:2px 7px;border-radius:99px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1200;letter-spacing:.3px}
+.pair-switch{display:flex;gap:3px;background:var(--card);border-radius:10px;padding:3px;border:1px solid var(--line)}
+.pair-switch button{padding:6px 10px;border-radius:8px;font-weight:700;font-size:11px;color:var(--muted)}
+.pair-switch button.on{background:rgba(251,191,36,.18);color:var(--gold)}
+.price-live{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--green);margin-left:2px;white-space:nowrap}
+.top-right{margin-left:auto;display:flex;gap:6px;align-items:center}
+.icon-btn{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--card);border:1px solid var(--line);color:var(--muted);position:relative}
+.icon-btn:active{background:var(--elev)}
+.icon-btn .n{position:absolute;top:-3px;right:-3px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;background:var(--red);color:#fff;font-size:9px;font-weight:800;display:grid;place-items:center}
+.avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#22d3ee);display:grid;place-items:center;font-weight:800;font-size:11px;color:#041018}
+
+.layout{flex:1;display:grid;grid-template-columns:1fr;min-height:0}
+@media(min-width:960px){.layout{grid-template-columns:1fr 320px}}
+
+.main{display:flex;flex-direction:column;min-height:0}
+.tf-bar{display:flex;gap:4px;padding:8px 10px;overflow-x:auto;border-bottom:1px solid var(--line);-webkit-overflow-scrolling:touch}
+.tf-bar button{flex:0 0 auto;padding:7px 14px;border-radius:9px;font-weight:700;font-size:12px;color:var(--muted)}
+.tf-bar button.on{background:rgba(251,191,36,.15);color:var(--gold)}
+.notice{padding:7px 12px;font-size:11px;color:var(--orange);background:rgba(251,146,60,.06);border-bottom:1px solid rgba(251,146,60,.12);line-height:1.4}
+.status-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 10px}
+.stat-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.stat-card .label{font-size:9px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.stat-card .val{font-weight:700;font-size:13px}
+.drive-bar{height:5px;border-radius:99px;background:#1e293b;margin-top:8px;overflow:hidden;display:flex}
+.drive-bar .buy{background:var(--blue);height:100%;transition:width .4s}
+.drive-bar .sell{background:var(--red);height:100%;transition:width .4s}
+#tv_chart{width:100%;height:min(52vh,480px);min-height:320px;background:#0b1220}
+@media(min-width:960px){#tv_chart{height:calc(100vh - 200px);min-height:480px}}
+
+.side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden}
+.side-tabs{display:flex;border-bottom:1px solid var(--line);flex-shrink:0}
+.side-tabs button{flex:1;padding:12px 6px;font-weight:700;font-size:11px;color:var(--muted);border-bottom:2px solid transparent}
+.side-tabs button.on{color:var(--gold);border-bottom-color:var(--gold)}
+.side-body{flex:1;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch}
+.levels{display:flex;flex-direction:column;gap:5px}
+.lvl{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;border-radius:10px;background:var(--card);border:1px solid var(--line);font-family:var(--mono);font-size:12px}
+.lvl .tag{font-weight:800;font-size:10px;padding:2px 7px;border-radius:6px}
+.lvl.up .tag{background:rgba(52,211,153,.15);color:var(--green)}
+.lvl.dn .tag{background:rgba(248,113,113,.15);color:var(--red)}
+.lvl.mid .tag{background:rgba(34,211,238,.15);color:var(--cyan)}
+.lvl.live{border-color:rgba(251,146,60,.45);box-shadow:0 0 0 1px rgba(251,146,60,.1)}
+.lvl.live .tag{background:rgba(251,146,60,.2);color:var(--orange)}
+.hint{font-size:11px;color:var(--faint);margin-top:12px;line-height:1.5}
+
+.alert-item{display:flex;align-items:flex-start;gap:10px;padding:11px;border-radius:11px;background:var(--card);border:1px solid var(--line);margin-bottom:6px}
+.alert-item.new{border-color:rgba(52,211,153,.4)}
+.alert-item .dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;margin-top:4px}
+.alert-item .txt{flex:1;min-width:0}
+.alert-item .txt b{display:block;font-size:12px;font-weight:700}
+.alert-item .txt span{font-size:10px;color:var(--muted)}
+
+.bottom-nav{display:flex;justify-content:space-around;padding:6px 4px calc(8px + var(--safe));background:rgba(6,10,17,.95);border-top:1px solid var(--line);position:sticky;bottom:0;z-index:30;backdrop-filter:blur(12px)}
+@media(min-width:960px){.bottom-nav{display:none}}
+.bottom-nav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600;color:var(--muted);padding:4px 12px;min-width:56px}
+.bottom-nav button.on{color:var(--gold)}
+.bottom-nav svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:80;display:flex;align-items:flex-end;justify-content:center}
+@media(min-width:480px){.modal-bg{align-items:center;padding:20px}}
+.modal{width:100%;max-width:420px;background:var(--panel);border-radius:18px 18px 0 0;border:1px solid var(--line);padding:20px;padding-bottom:calc(20px + var(--safe));max-height:90vh;overflow-y:auto}
+@media(min-width:480px){.modal{border-radius:18px}}
+.modal h3{font-size:17px;font-weight:800;margin-bottom:6px}
+.modal p{color:var(--muted);font-size:12px;margin-bottom:14px;line-height:1.55}
+.qr-box{background:#fff;border-radius:14px;padding:16px;text-align:center;margin:12px 0}
+.qr-box img{width:180px;height:180px}
+.qr-amount{font-family:var(--mono);font-size:22px;font-weight:800;color:var(--gold);margin:8px 0 4px}
+.account-row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:120;background:#122018;border:1px solid rgba(52,211,153,.4);color:var(--green);padding:11px 18px;border-radius:12px;font-weight:700;font-size:13px;box-shadow:0 10px 40px rgba(0,0,0,.45);max-width:90%;text-align:center;transition:opacity .2s}
+.toast.err{background:#1a1214;border-color:rgba(248,113,113,.4);color:var(--red)}
+pre.pine{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-family:var(--mono);font-size:10px;overflow:auto;max-height:340px;white-space:pre-wrap;line-height:1.45;color:#cbd5e1}
+
+.gate-logo img.logo-icon{width:48px;height:48px;border-radius:12px;object-fit:cover}
+.gate-logo img.logo-wm{height:36px;width:auto;max-width:220px;object-fit:contain}
+.logo img.logo-icon{width:32px;height:32px;border-radius:9px;object-fit:cover}
+.logo img.logo-wm{height:22px;width:auto;max-width:120px;object-fit:contain;display:none}
+@media(min-width:400px){.logo img.logo-wm{display:block}.logo .wm-text{display:none}}
+.logo .wm-text{font-weight:800;font-size:15px;letter-spacing:-.03em}
+.logo .wm-text .f-gold{color:#fbbf24}.logo .wm-text .x-cyan{color:#22d3ee}
+
+</style>
+
+<title>Gold Fx · Login</title>
+<style>
+.page-auth{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:radial-gradient(ellipse at 30% 0%,rgba(251,191,36,.08),transparent 50%),var(--bg)}
+.auth-card{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:28px 24px;box-shadow:0 24px 80px rgba(0,0,0,.5)}
+.auth-logo{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px}
+.auth-logo img{width:48px;height:48px;border-radius:12px}
+.auth-logo .wm{font-weight:800;font-size:22px}
+.auth-logo .f-gold{color:#fbbf24}.auth-logo .x-cyan{color:#22d3ee}
+.auth-sub{text-align:center;color:var(--muted);font-size:12px;margin-bottom:20px}
+.auth-links{text-align:center;margin-top:16px;font-size:12px;color:var(--muted)}
+.auth-links a{color:var(--gold);font-weight:700}
+
+/* Page loader */
+#pageLoader{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:#060a11;transition:opacity .35s ease,visibility .35s}
+#pageLoader.hide{opacity:0;visibility:hidden;pointer-events:none}
+#pageLoader .pl-logo{width:72px;height:72px;border-radius:18px;object-fit:cover;
+  box-shadow:0 0 0 1px rgba(251,191,36,.25),0 12px 40px rgba(0,0,0,.45);
+  animation:plPulse 1.2s ease-in-out infinite}
+#pageLoader .pl-name{margin-top:14px;font-weight:800;font-size:18px;letter-spacing:-.03em;color:#eef2f7}
+#pageLoader .pl-name .g{color:#fbbf24}#pageLoader .pl-name .x{color:#22d3ee}
+#pageLoader .pl-bar{width:120px;height:3px;border-radius:99px;background:rgba(148,163,184,.15);margin-top:16px;overflow:hidden}
+#pageLoader .pl-bar i{display:block;height:100%;width:40%;border-radius:99px;
+  background:linear-gradient(90deg,#fbbf24,#22d3ee);animation:plSlide 1s ease-in-out infinite}
+@keyframes plPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes plSlide{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+</style>
+</head>
+<body>
+
+<div id="pageLoader" aria-busy="true" aria-label="Loading">
+  <img class="pl-logo" src="/static/logo-icon.jpg" alt="Gold Fx" width="72" height="72">
+  <div class="pl-name">Gold<span class="g">F</span><span class="x">x</span></div>
+  <div class="pl-bar"><i></i></div>
+</div>
+
+<div class="page-auth">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <img src="/static/logo-icon.jpg" alt="">
+      <span class="wm">Gold<span class="f-gold">F</span><span class="x-cyan">x</span></span>
+    </div>
+    <p class="auth-sub">Login · XAUUSD chart & signals</p>
+    <div class="field"><label>Email</label><input id="email" type="email" placeholder="you@email.com" autocomplete="username"></div>
+    <div class="field"><label>Password</label><input id="pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+    <div class="err" id="err" style="color:var(--red);font-size:12px;min-height:18px;margin:4px 0 8px"></div>
+    <button class="btn-gold" type="button" id="btn" onclick="doLogin()">Login</button>
+    <p class="auth-links">មិនទាន់មាន account? <a href="/register">Sign up</a></p>
+  </div>
+</div>
+<div class="toast hidden" id="toast"></div>
+<script>
+async function api(path, opt={}){
+  const r = await fetch('/api/'+path,{headers:{'Content-Type':'application/json'},credentials:'same-origin',...opt});
+  return r.json().catch(()=>({ok:false}));
+}
+function toast(m,e){const t=document.getElementById('toast');t.textContent=m;t.classList.toggle('err',!!e);t.classList.remove('hidden');setTimeout(()=>t.classList.add('hidden'),2500)}
+async function doLogin(){
+  const email=document.getElementById('email').value.trim().toLowerCase();
+  const password=document.getElementById('pass').value;
+  const err=document.getElementById('err');
+  const btn=document.getElementById('btn'); btn.disabled=true;
+  const r=await api('login',{method:'POST',body:JSON.stringify({email,password})});
+  if(!r.ok){err.textContent=r.error||'Fail'; btn.disabled=false; return}
+  location.href='/dashboard';
+}
+document.getElementById('pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+api('me').then(r=>{if(r.user) location.href='/dashboard'});
+</script>
+<script>
+(function(){
+  function hideLoader(){
+    var el=document.getElementById('pageLoader');
+    if(!el) return;
+    el.classList.add('hide');
+    setTimeout(function(){ el.remove(); }, 400);
+  }
+  if(document.readyState==='complete') setTimeout(hideLoader, 400);
+  else window.addEventListener('load', function(){ setTimeout(hideLoader, 350); });
+  // safety
+  setTimeout(hideLoader, 4000);
+})();
+
+
+document.addEventListener('click', function(e){
+  var a = e.target.closest('a[href]');
+  if(!a) return;
+  var href = a.getAttribute('href')||'';
+  if(href.startsWith('http') || href.startsWith('#') || href.startsWith('mailto:') || a.target==='_blank') return;
+  if(href.startsWith('/') || !href.includes(':')){
+    var el=document.getElementById('pageLoader');
+    if(!el){
+      el=document.createElement('div');
+      el.id='pageLoader';
+      el.innerHTML='<img class="pl-logo" src="/static/logo-icon.jpg" alt="" width="72" height="72"><div class="pl-name">Gold<span class="g">F</span><span class="x">x</span></div><div class="pl-bar"><i></i></div>';
+      document.body.appendChild(el);
+    } else {
+      el.classList.remove('hide');
+    }
+  }
+});
+</script>
+</body></html>

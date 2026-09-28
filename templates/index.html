@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gold Fx</title>
+<link rel="icon" type="image/jpeg" href="/static/logo-icon.jpg">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:Inter,system-ui,sans-serif;
+  background:#060a11;color:#eef2f7}
+.box{text-align:center;padding:32px}
+.box img{width:72px;height:72px;border-radius:18px;margin-bottom:14px}
+h1{font-size:28px;font-weight:800;margin:0 0 8px;letter-spacing:-.03em}
+h1 span.g{color:#fbbf24}h1 span.x{color:#22d3ee}
+p{color:#8b9cb3;font-size:13px;margin:0 0 24px}
+.btn{display:inline-block;padding:12px 28px;border-radius:12px;font-weight:800;text-decoration:none;margin:4px}
+.btn-gold{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1200}
+.btn-ghost{border:1px solid rgba(148,163,184,.2);color:#eef2f7}
+
+/* Page loader */
+#pageLoader{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:#060a11;transition:opacity .35s ease,visibility .35s}
+#pageLoader.hide{opacity:0;visibility:hidden;pointer-events:none}
+#pageLoader .pl-logo{width:72px;height:72px;border-radius:18px;object-fit:cover;
+  box-shadow:0 0 0 1px rgba(251,191,36,.25),0 12px 40px rgba(0,0,0,.45);
+  animation:plPulse 1.2s ease-in-out infinite}
+#pageLoader .pl-name{margin-top:14px;font-weight:800;font-size:18px;letter-spacing:-.03em;color:#eef2f7}
+#pageLoader .pl-name .g{color:#fbbf24}#pageLoader .pl-name .x{color:#22d3ee}
+#pageLoader .pl-bar{width:120px;height:3px;border-radius:99px;background:rgba(148,163,184,.15);margin-top:16px;overflow:hidden}
+#pageLoader .pl-bar i{display:block;height:100%;width:40%;border-radius:99px;
+  background:linear-gradient(90deg,#fbbf24,#22d3ee);animation:plSlide 1s ease-in-out infinite}
+@keyframes plPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes plSlide{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+</style>
+</head>
+<body>
+
+<div id="pageLoader" aria-busy="true" aria-label="Loading">
+  <img class="pl-logo" src="/static/logo-icon.jpg" alt="Gold Fx" width="72" height="72">
+  <div class="pl-name">Gold<span class="g">F</span><span class="x">x</span></div>
+  <div class="pl-bar"><i></i></div>
+</div>
+
+<div class="box">
+  <img src="/static/logo-icon.jpg" alt="Gold Fx">
+  <h1>Gold<span class="g">F</span><span class="x">x</span></h1>
+  <p>XAUUSD live chart · Range levels · Smart alerts</p>
+  <a class="btn btn-gold" href="/login">Login</a>
+  <a class="btn btn-ghost" href="/register">Sign up</a>
+</div>
+<script>
+fetch('/api/me',{credentials:'same-origin'}).then(r=>r.json()).then(d=>{
+  if(d.user) location.href='/dashboard';
+}).catch(()=>{});
+</script>
+<script>
+(function(){
+  function hideLoader(){
+    var el=document.getElementById('pageLoader');
+    if(!el) return;
+    el.classList.add('hide');
+    setTimeout(function(){ el.remove(); }, 400);
+  }
+  if(document.readyState==='complete') setTimeout(hideLoader, 400);
+  else window.addEventListener('load', function(){ setTimeout(hideLoader, 350); });
+  // safety
+  setTimeout(hideLoader, 4000);
+})();
+
+
+document.addEventListener('click', function(e){
+  var a = e.target.closest('a[href]');
+  if(!a) return;
+  var href = a.getAttribute('href')||'';
+  if(href.startsWith('http') || href.startsWith('#') || href.startsWith('mailto:') || a.target==='_blank') return;
+  if(href.startsWith('/') || !href.includes(':')){
+    var el=document.getElementById('pageLoader');
+    if(!el){
+      el=document.createElement('div');
+      el.id='pageLoader';
+      el.innerHTML='<img class="pl-logo" src="/static/logo-icon.jpg" alt="" width="72" height="72"><div class="pl-name">Gold<span class="g">F</span><span class="x">x</span></div><div class="pl-bar"><i></i></div>';
+      document.body.appendChild(el);
+    } else {
+      el.classList.remove('hide');
+    }
+  }
+});
+</script>
+</body>
+</html>

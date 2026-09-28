@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Gold Fx · Live Chart & Signals</title>
+<meta name="theme-color" content="#070b12">
+<meta name="description" content="Gold Fx — XAUUSD chart, range levels, smart alerts">
+<link rel="icon" type="image/jpeg" href="/static/logo-icon.jpg">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://s3.tradingview.com/tv.js"></script>
+<style>
+:root{
+  --bg:#060a11;--panel:#0c121c;--card:#121a28;--elev:#182234;
+  --line:rgba(148,163,184,.12);--line2:rgba(251,191,36,.2);
+  --text:#eef2f7;--muted:#8b9cb3;--faint:#5b6b82;
+  --cyan:#22d3ee;--blue:#3b82f6;--green:#34d399;--red:#f87171;
+  --orange:#fb923c;--gold:#fbbf24;--purple:#a78bfa;
+  --font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r:14px;--safe:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13px;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+button,input,select{font-family:inherit;font-size:inherit}
+button{cursor:pointer;border:none;background:none;color:inherit}
+input,select{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);outline:none;transition:border .15s}
+input:focus,select:focus{border-color:rgba(251,191,36,.45)}
+a{color:var(--cyan);text-decoration:none}
+.hidden{display:none!important}
+
+/* ===== AUTH GATE ===== */
+.gate{position:fixed;inset:0;z-index:100;background:radial-gradient(ellipse at 30% 0%,rgba(251,191,36,.08),transparent 50%),var(--bg);display:flex;align-items:center;justify-content:center;padding:20px}
+.gate-card{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:28px 24px;box-shadow:0 24px 80px rgba(0,0,0,.5)}
+.gate-logo{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px}
+.gate-logo svg{width:40px;height:40px}
+.gate-logo span,.wm{font-weight:800;font-size:22px;letter-spacing:-.03em;color:#fff}
+.wm .fx{letter-spacing:-.04em}.wm .f-gold{color:#fbbf24}.wm .x-cyan{color:#22d3ee}
+.logo .wm{font-size:15px}
+.gate-sub{text-align:center;color:var(--muted);font-size:12px;margin-bottom:20px;line-height:1.5}
+.auth-tabs{display:flex;gap:6px;background:var(--card);padding:4px;border-radius:12px;margin-bottom:16px;border:1px solid var(--line)}
+.auth-tabs button{flex:1;padding:10px;border-radius:10px;font-weight:700;color:var(--muted);transition:.15s}
+.auth-tabs button.on{background:linear-gradient(135deg,rgba(251,191,36,.2),rgba(251,191,36,.08));color:var(--gold)}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.err{color:var(--red);font-size:12px;min-height:18px;margin:4px 0 8px}
+.btn-gold{width:100%;padding:13px;border-radius:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1200;font-weight:800;font-size:14px;transition:transform .1s,filter .15s}
+.btn-gold:active{transform:scale(.98)}
+.btn-gold:disabled{opacity:.6;cursor:wait}
+.btn-ghost{width:100%;padding:12px;border-radius:12px;background:var(--elev);border:1px solid var(--line);font-weight:600;margin-top:8px}
+.btn-outline{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-weight:600;display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+
+/* ===== APP SHELL ===== */
+.app{min-height:100vh;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(6,10,17,.92);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:40;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;letter-spacing:-.03em;flex-shrink:0}
+.logo svg{width:28px;height:28px}
+.badge-pro{font-size:9px;font-weight:800;padding:2px 7px;border-radius:99px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1200;letter-spacing:.3px}
+.pair-switch{display:flex;gap:3px;background:var(--card);border-radius:10px;padding:3px;border:1px solid var(--line)}
+.pair-switch button{padding:6px 10px;border-radius:8px;font-weight:700;font-size:11px;color:var(--muted)}
+.pair-switch button.on{background:rgba(251,191,36,.18);color:var(--gold)}
+.price-live{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--green);margin-left:2px;white-space:nowrap}
+.top-right{margin-left:auto;display:flex;gap:6px;align-items:center}
+.icon-btn{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--card);border:1px solid var(--line);color:var(--muted);position:relative}
+.icon-btn:active{background:var(--elev)}
+.icon-btn .n{position:absolute;top:-3px;right:-3px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;background:var(--red);color:#fff;font-size:9px;font-weight:800;display:grid;place-items:center}
+.avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#22d3ee);display:grid;place-items:center;font-weight:800;font-size:11px;color:#041018}
+
+.layout{flex:1;display:grid;grid-template-columns:1fr;min-height:0}
+@media(min-width:960px){.layout{grid-template-columns:1fr 320px}}
+
+.main{display:flex;flex-direction:column;min-height:0}
+.tf-bar{display:flex;gap:4px;padding:8px 10px;overflow-x:auto;border-bottom:1px solid var(--line);-webkit-overflow-scrolling:touch}
+.tf-bar button{flex:0 0 auto;padding:7px 14px;border-radius:9px;font-weight:700;font-size:12px;color:var(--muted)}
+.tf-bar button.on{background:rgba(251,191,36,.15);color:var(--gold)}
+.notice{padding:7px 12px;font-size:11px;color:var(--orange);background:rgba(251,146,60,.06);border-bottom:1px solid rgba(251,146,60,.12);line-height:1.4}
+.status-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 10px}
+.stat-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.stat-card .label{font-size:9px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.stat-card .val{font-weight:700;font-size:13px}
+.drive-bar{height:5px;border-radius:99px;background:#1e293b;margin-top:8px;overflow:hidden;display:flex}
+.drive-bar .buy{background:var(--blue);height:100%;transition:width .4s}
+.drive-bar .sell{background:var(--red);height:100%;transition:width .4s}
+#tv_chart{width:100%;height:min(52vh,480px);min-height:320px;background:#0b1220}
+@media(min-width:960px){#tv_chart{height:calc(100vh - 200px);min-height:480px}}
+
+.side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden}
+.side-tabs{display:flex;border-bottom:1px solid var(--line);flex-shrink:0}
+.side-tabs button{flex:1;padding:12px 6px;font-weight:700;font-size:11px;color:var(--muted);border-bottom:2px solid transparent}
+.side-tabs button.on{color:var(--gold);border-bottom-color:var(--gold)}
+.side-body{flex:1;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch}
+.levels{display:flex;flex-direction:column;gap:5px}
+.lvl{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;border-radius:10px;background:var(--card);border:1px solid var(--line);font-family:var(--mono);font-size:12px}
+.lvl .tag{font-weight:800;font-size:10px;padding:2px 7px;border-radius:6px}
+.lvl.up .tag{background:rgba(52,211,153,.15);color:var(--green)}
+.lvl.dn .tag{background:rgba(248,113,113,.15);color:var(--red)}
+.lvl.mid .tag{background:rgba(34,211,238,.15);color:var(--cyan)}
+.lvl.live{border-color:rgba(251,146,60,.45);box-shadow:0 0 0 1px rgba(251,146,60,.1)}
+.lvl.live .tag{background:rgba(251,146,60,.2);color:var(--orange)}
+.hint{font-size:11px;color:var(--faint);margin-top:12px;line-height:1.5}
+
+.alert-item{display:flex;align-items:flex-start;gap:10px;padding:11px;border-radius:11px;background:var(--card);border:1px solid var(--line);margin-bottom:6px}
+.alert-item.new{border-color:rgba(52,211,153,.4)}
+.alert-item .dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;margin-top:4px}
+.alert-item .txt{flex:1;min-width:0}
+.alert-item .txt b{display:block;font-size:12px;font-weight:700}
+.alert-item .txt span{font-size:10px;color:var(--muted)}
+
+.bottom-nav{display:flex;justify-content:space-around;padding:6px 4px calc(8px + var(--safe));background:rgba(6,10,17,.95);border-top:1px solid var(--line);position:sticky;bottom:0;z-index:30;backdrop-filter:blur(12px)}
+@media(min-width:960px){.bottom-nav{display:none}}
+.bottom-nav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600;color:var(--muted);padding:4px 12px;min-width:56px}
+.bottom-nav button.on{color:var(--gold)}
+.bottom-nav svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:80;display:flex;align-items:flex-end;justify-content:center}
+@media(min-width:480px){.modal-bg{align-items:center;padding:20px}}
+.modal{width:100%;max-width:420px;background:var(--panel);border-radius:18px 18px 0 0;border:1px solid var(--line);padding:20px;padding-bottom:calc(20px + var(--safe));max-height:90vh;overflow-y:auto}
+@media(min-width:480px){.modal{border-radius:18px}}
+.modal h3{font-size:17px;font-weight:800;margin-bottom:6px}
+.modal p{color:var(--muted);font-size:12px;margin-bottom:14px;line-height:1.55}
+.qr-box{background:#fff;border-radius:14px;padding:16px;text-align:center;margin:12px 0}
+.qr-box img{width:180px;height:180px}
+.qr-amount{font-family:var(--mono);font-size:22px;font-weight:800;color:var(--gold);margin:8px 0 4px}
+.account-row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:120;background:#122018;border:1px solid rgba(52,211,153,.4);color:var(--green);padding:11px 18px;border-radius:12px;font-weight:700;font-size:13px;box-shadow:0 10px 40px rgba(0,0,0,.45);max-width:90%;text-align:center;transition:opacity .2s}
+.toast.err{background:#1a1214;border-color:rgba(248,113,113,.4);color:var(--red)}
+pre.pine{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-family:var(--mono);font-size:10px;overflow:auto;max-height:340px;white-space:pre-wrap;line-height:1.45;color:#cbd5e1}
+
+.gate-logo img.logo-icon{width:48px;height:48px;border-radius:12px;object-fit:cover}
+.gate-logo img.logo-wm{height:36px;width:auto;max-width:220px;object-fit:contain}
+.logo img.logo-icon{width:32px;height:32px;border-radius:9px;object-fit:cover}
+.logo img.logo-wm{height:22px;width:auto;max-width:120px;object-fit:contain;display:none}
+@media(min-width:400px){.logo img.logo-wm{display:block}.logo .wm-text{display:none}}
+.logo .wm-text{font-weight:800;font-size:15px;letter-spacing:-.03em}
+.logo .wm-text .f-gold{color:#fbbf24}.logo .wm-text .x-cyan{color:#22d3ee}
+
+
+/* Page loader */
+#pageLoader{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:#060a11;transition:opacity .35s ease,visibility .35s}
+#pageLoader.hide{opacity:0;visibility:hidden;pointer-events:none}
+#pageLoader .pl-logo{width:72px;height:72px;border-radius:18px;object-fit:cover;
+  box-shadow:0 0 0 1px rgba(251,191,36,.25),0 12px 40px rgba(0,0,0,.45);
+  animation:plPulse 1.2s ease-in-out infinite}
+#pageLoader .pl-name{margin-top:14px;font-weight:800;font-size:18px;letter-spacing:-.03em;color:#eef2f7}
+#pageLoader .pl-name .g{color:#fbbf24}#pageLoader .pl-name .x{color:#22d3ee}
+#pageLoader .pl-bar{width:120px;height:3px;border-radius:99px;background:rgba(148,163,184,.15);margin-top:16px;overflow:hidden}
+#pageLoader .pl-bar i{display:block;height:100%;width:40%;border-radius:99px;
+  background:linear-gradient(90deg,#fbbf24,#22d3ee);animation:plSlide 1s ease-in-out infinite}
+@keyframes plPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes plSlide{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+</style>
+</head>
+<body>
+
+<div id="pageLoader" aria-busy="true" aria-label="Loading">
+  <img class="pl-logo" src="/static/logo-icon.jpg" alt="Gold Fx" width="72" height="72">
+  <div class="pl-name">Gold<span class="g">F</span><span class="x">x</span></div>
+  <div class="pl-bar"><i></i></div>
+</div>
+
+
+<!-- LOGIN -->
+<!-- APP -->
+<div class="app" id="app">
+<header class="top">
+  <div class="logo">
+    <img class="logo-icon" src="/static/logo-icon.jpg" alt="" width="32" height="32">
+    <img class="logo-wm" src="/static/logo-wordmark.jpg" alt="Gold Fx" height="22">
+    <span class="wm-text">Gold<span class="f-gold">F</span><span class="x-cyan">x</span></span>
+    <span class="badge-pro hidden" id="proBadge">PRO</span>
+  </div>
+  <div class="pair-switch" id="pairSwitch">
+    <button type="button" class="on" data-sym="OANDA:XAUUSD">XAU</button>
+    <button type="button" data-sym="BINANCE:BTCUSDT">BTC</button>
+  </div>
+  <span class="price-live" id="livePrice">—</span>
+  <div class="top-right">
+    <button class="icon-btn" type="button" onclick="openModal('alerts')" title="Alerts" aria-label="Alerts">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      <span class="n hidden" id="alertN">0</span>
+    </button>
+    <button class="icon-btn" type="button" onclick="openModal('account')" title="Account" aria-label="Account">
+      <span class="avatar" id="av">G</span>
+    </button>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="main">
+    <div class="tf-bar" id="tfBar">
+      <button type="button" data-tf="5">5m</button>
+      <button type="button" class="on" data-tf="15">15m</button>
+      <button type="button" data-tf="60">1h</button>
+      <button type="button" data-tf="240">4h</button>
+      <button type="button" data-tf="D">1D</button>
+    </div>
+    <div class="notice" id="notice">Gold Fx · Multi-TF range levels · Enable browser alerts for signals</div>
+    <div class="status-row">
+      <div class="stat-card">
+        <div class="label">Feed status</div>
+        <div class="val" id="feedStatus">● LIVE</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px" id="feedSub">Chart connected</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Market drive</div>
+        <div class="val" id="driveText">—</div>
+        <div class="drive-bar"><div class="buy" id="buyBar" style="width:50%"></div><div class="sell" id="sellBar" style="width:50%"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px">
+          <span id="buyPct">Buyer —</span><span id="sellPct">Seller —</span>
+        </div>
+      </div>
+    </div>
+    <div id="tv_chart"></div>
+  </div>
+
+  <aside class="side">
+    <div class="side-tabs">
+      <button type="button" class="on" data-tab="levels">Levels</button>
+      <button type="button" data-tab="alerts">Alerts</button>
+      <button type="button" data-tab="code">Code</button>
+    </div>
+    <div class="side-body" id="tab-levels">
+      <div class="levels" id="levelsList"></div>
+      <p class="hint">UP/DN = range structure · LIVE = last · MEAN = midpoint · OPEN = session ref</p>
+    </div>
+    <div class="side-body hidden" id="tab-alerts">
+      <button class="btn-ghost" type="button" style="margin-bottom:10px" onclick="enablePush()">🔔 Enable browser alerts</button>
+      <div id="alertsList"></div>
+    </div>
+    <div class="side-body hidden" id="tab-code">
+      <p class="hint" style="margin-top:0;margin-bottom:10px">Pine Script — paste into TradingView Pine Editor</p>
+      <pre class="pine" id="pineCode"></pre>
+      <button class="btn-ghost" type="button" style="margin-top:10px" onclick="copyPine()">Copy indicator</button>
+    </div>
+  </aside>
+</div>
+
+<nav class="bottom-nav" id="bottomNav">
+  <button type="button" class="on" data-nav="chart" onclick="navTo('chart')">
+    <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>Chart
+  </button>
+  <button type="button" data-nav="alerts" onclick="openModal('alerts')">
+    <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>Alerts
+  </button>
+  <button type="button" data-nav="pro" onclick="location.href='/pro'">
+    <svg viewBox="0 0 24 24"><path d="M3 7l4 12h10l4-12-5 4-4-7-4 7z"/></svg>Pro
+  </button>
+  <button type="button" data-nav="tg" onclick="openModal('tg')">
+    <svg viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg>TG
+  </button>
+  <button type="button" data-nav="account" onclick="openModal('account')">
+    <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Account
+  </button>
+</nav>
+</div>
+
+<div class="modal-bg hidden" id="modalBg" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modalBox"></div>
+</div>
+<div class="toast hidden" id="toast"></div>
+
+<script>
+const K = { ALERTS: 'goldfx_alerts_v2' };
+let PRO_PRICE = 9.99;
+let TG_FAMILY = 'https://t.me/';
+let TG_BOT = 'https://t.me/';
+let CURRENT = null;
+let _payPoll = null;
+
+async function api(path, opt={}){
+  const r = await fetch('/api/'+path, {
+    headers: {'Content-Type':'application/json', ...(opt.headers||{})},
+    credentials: 'same-origin',
+    ...opt,
+  });
+  return r.json().catch(()=>({ok:false,error:'network'}));
+}
+function loadAlerts(){ try{ return JSON.parse(localStorage.getItem(K.ALERTS)||'[]'); }catch{ return []; } }
+function saveAlerts(a){ localStorage.setItem(K.ALERTS, JSON.stringify(a.slice(0,80))); }
+
+function switchAuth(mode){
+  document.getElementById('tabLogin').classList.toggle('on', mode==='login');
+  document.getElementById('tabReg').classList.toggle('on', mode==='reg');
+  document.getElementById('authLogin').classList.toggle('hidden', mode!=='login');
+  document.getElementById('authReg').classList.toggle('hidden', mode!=='reg');
+}
+async function doRegister(){
+  const name = (document.getElementById('regName').value||'').trim();
+  const email = (document.getElementById('regEmail').value||'').trim().toLowerCase();
+  const pass = document.getElementById('regPass').value||'';
+  const err = document.getElementById('regErr');
+  if(!name || !email || pass.length < 6){ err.textContent = 'បំពេញឈ្មោះ · email · password ≥ 6'; return; }
+  const r = await api('register', {method:'POST', body: JSON.stringify({name,email,password:pass})});
+  if(!r.ok){ err.textContent = r.error||'Fail'; return; }
+  CURRENT = r.user; err.textContent='';
+  enterApp(); toast('Welcome, '+name);
+}
+async function doLogin(){
+  const email = (document.getElementById('loginEmail').value||'').trim().toLowerCase();
+  const pass = document.getElementById('loginPass').value||'';
+  const err = document.getElementById('loginErr');
+  const r = await api('login', {method:'POST', body: JSON.stringify({email, password:pass})});
+  if(!r.ok){ err.textContent = r.error||'Fail'; return; }
+  CURRENT = r.user; err.textContent='';
+  enterApp(); toast('Logged in');
+}
+async function logout(){ await api('logout',{method:'POST'}); CURRENT=null; location.href='/login'; }
+function currentUser(){ return CURRENT; }
+function setProFromUser(u){
+  CURRENT = u;
+  document.getElementById('proBadge').classList.toggle('hidden', !u.pro);
+  toast('Pro activated ✓');
+}
+function enterApp(){
+  const s = CURRENT;
+  if(!s){ location.href='/login'; return; }
+  const av = document.getElementById('av');
+  if(av) av.textContent = (s.name||'G').charAt(0).toUpperCase();
+  const badge = document.getElementById('proBadge');
+  if(badge) badge.classList.toggle('hidden', !s.pro);
+  loadChart();
+  renderLevels(BASE);
+  renderAlerts();
+  startLive();
+}
+
+/* ========== Chart ========== */
+let symbol = 'OANDA:XAUUSD';
+let interval = '15';
+let chartReady = false;
+function loadChart(){
+  const el = document.getElementById('tv_chart');
+  el.innerHTML = '';
+  try {
+    new TradingView.widget({
+      container_id: 'tv_chart',
+      symbol: symbol,
+      interval: interval,
+      timezone: 'Asia/Phnom_Penh',
+      theme: 'dark',
+      style: '1',
+      locale: 'en',
+      toolbar_bg: '#0c121c',
+      enable_publishing: false,
+      hide_side_toolbar: false,
+      allow_symbol_change: true,
+      withdateranges: true,
+      details: false,
+      hotlist: false,
+      calendar: false,
+      studies: ['MASimple@tv-basicstudies'],
+      autosize: true,
+      height: '100%',
+      width: '100%',
+    });
+    chartReady = true;
+    document.getElementById('feedStatus').textContent = '● LIVE';
+    document.getElementById('feedStatus').style.color = 'var(--green)';
+    document.getElementById('feedSub').textContent = symbol.split(':')[1] || symbol;
+  } catch(e){
+    el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Chart failed to load · check network</div>';
+    document.getElementById('feedStatus').textContent = '● OFFLINE';
+    document.getElementById('feedStatus').style.color = 'var(--red)';
+  }
+}
+document.getElementById('pairSwitch').addEventListener('click', e => {
+  const b = e.target.closest('button[data-sym]');
+  if(!b) return;
+  document.querySelectorAll('#pairSwitch button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  symbol = b.dataset.sym;
+  loadChart();
+});
+document.getElementById('tfBar').addEventListener('click', e => {
+  const b = e.target.closest('button[data-tf]');
+  if(!b) return;
+  document.querySelectorAll('#tfBar button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  interval = b.dataset.tf;
+  loadChart();
+});
+document.querySelectorAll('.side-tabs button').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('.side-tabs button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    ['levels','alerts','code'].forEach(id => {
+      document.getElementById('tab-'+id).classList.toggle('hidden', b.dataset.tab !== id);
+    });
+  };
+});
+
+/* ========== Levels + live sim ========== */
+let BASE = 2650.00; // realistic-ish gold anchor; jittered live
+function buildLevels(price){
+  return [
+    {tag:'UP3', price: price+57, cls:'up'},
+    {tag:'UP2', price: price+35, cls:'up'},
+    {tag:'UP1', price: price+12, cls:'up'},
+    {tag:'LIVE', price: price, cls:'live'},
+    {tag:'MEAN', price: price-1.2, cls:'mid'},
+    {tag:'OPEN', price: price-8.5, cls:'mid'},
+    {tag:'DN1', price: price-28, cls:'dn'},
+    {tag:'DN2', price: price-48, cls:'dn'},
+    {tag:'DN3', price: price-72, cls:'dn'},
+  ];
+}
+function fmt(n){ return Number(n).toFixed(2); }
+function renderLevels(price){
+  document.getElementById('levelsList').innerHTML = buildLevels(price).map(l =>
+    `<div class="lvl ${l.cls}"><span class="tag">${l.tag}</span><span>${fmt(l.price)}</span></div>`
+  ).join('');
+  document.getElementById('livePrice').textContent = fmt(price);
+}
+function updateDrive(){
+  const buy = 28 + Math.floor(Math.random()*45);
+  document.getElementById('buyBar').style.width = buy+'%';
+  document.getElementById('sellBar').style.width = (100-buy)+'%';
+  document.getElementById('buyPct').textContent = 'Buyer '+buy+'%';
+  document.getElementById('sellPct').textContent = 'Seller '+(100-buy)+'%';
+  const lead = buy >= 50 ? buy : 100-buy;
+  document.getElementById('driveText').textContent = (buy>=50?'Buyers lead':'Sellers lead')+' · '+lead+'%';
+}
+let liveTimer = null;
+function startLive(){
+  if(liveTimer) clearInterval(liveTimer);
+  updateDrive();
+  liveTimer = setInterval(() => {
+    BASE = BASE + (Math.random()-0.48)*1.2;
+    renderLevels(BASE);
+    if(Math.random() > 0.55) updateDrive();
+  }, 4000);
+}
+
+/* ========== Alerts ========== */
+function renderAlerts(){
+  const list = loadAlerts();
+  const el = document.getElementById('alertsList');
+  if(!list.length){
+    el.innerHTML = '<p class="hint">មិនទាន់មាន alert · Enable browser alerts រង់ចាំ signal</p>';
+  } else {
+    el.innerHTML = list.map(a => `
+      <div class="alert-item ${a.new?'new':''}">
+        <div class="dot"></div>
+        <div class="txt"><b>${esc(a.t)}</b><span>${esc(a.s)} · ${new Date(a.ts).toLocaleTimeString()}</span></div>
+      </div>`).join('');
+  }
+  const n = list.filter(x => x.new).length;
+  const badge = document.getElementById('alertN');
+  badge.textContent = n;
+  badge.classList.toggle('hidden', n===0);
+}
+function pushAlert(title, sub){
+  const list = loadAlerts();
+  list.unshift({ t:title, s:sub, ts:Date.now(), new:true });
+  saveAlerts(list);
+  renderAlerts();
+  if(typeof Notification !== 'undefined' && Notification.permission === 'granted'){
+    try{ new Notification('Gold Fx', { body: title+' · '+sub }); }catch(e){}
+  }
+  toast(title);
+}
+function enablePush(){
+  if(!('Notification' in window)){ toast('Browser នេះមិន support', true); return; }
+  Notification.requestPermission().then(p => {
+    document.getElementById('feedSub').textContent = p==='granted' ? 'Push alerts ON' : 'Permission: '+p;
+    toast(p==='granted' ? 'Browser alerts បើកហើយ' : 'មិនអនុញ្ញាត', p!=='granted');
+  });
+}
+function markAlertsRead(){
+  saveAlerts(loadAlerts().map(a => Object.assign({}, a, {new:false})));
+  renderAlerts();
+}
+function seedAlerts(){
+  if(loadAlerts().length) return;
+  saveAlerts([
+    {t:'Buy Node Zone confirmed', s:'15M / NODE ZONE', ts:Date.now()-90000, new:true},
+    {t:'Sell Diamond invalidated', s:'5M / DIAMOND', ts:Date.now()-180000, new:false},
+  ]);
+}
+let alertTimer = null;
+function startAlertSim(){
+  if(alertTimer) clearInterval(alertTimer);
+  const samples = [
+    ['Buy Diamond invalidated','5M / DIAMOND'],
+    ['Sell Node Zone confirmed','15M / NODE'],
+    ['Break UP1 watch','LIVE / RANGE'],
+    ['Buy pressure rising','Market Drive'],
+    ['Sell Diamond invalidated','1H / DIAMOND'],
+  ];
+  alertTimer = setInterval(() => {
+    const u = currentUser();
+    if(!u) return;
+    if(u.pro || Math.random() > 0.65){
+      const s = samples[Math.floor(Math.random()*samples.length)];
+      pushAlert(s[0], s[1]);
+    }
+  }, 50000);
+}
+
+/* ========== Pine ========== */
+const PINE = `//@version=5
+indicator("Gold Fx Range Levels", overlay=true)
+len = input.int(50, "Mean Length")
+rng = input.float(1.0, "Range Mult")
+mean = ta.sma(close, len)
+hi = ta.highest(high, len)
+lo = ta.lowest(low, len)
+rngSize = (hi - lo) * rng
+up1 = mean + rngSize * 0.25
+up2 = mean + rngSize * 0.50
+up3 = mean + rngSize * 0.75
+dn1 = mean - rngSize * 0.25
+dn2 = mean - rngSize * 0.50
+dn3 = mean - rngSize * 0.75
+plot(up3, "UP3", color=color.new(color.green, 30))
+plot(up2, "UP2", color=color.new(color.green, 20))
+plot(up1, "UP1", color=color.green)
+plot(mean, "MEAN", color=color.aqua, linewidth=2)
+plot(dn1, "DN1", color=color.red)
+plot(dn2, "DN2", color=color.new(color.red, 20))
+plot(dn3, "DN3", color=color.new(color.red, 30))
+alertcondition(ta.crossover(close, up1), "Break UP1", "Gold Fx: crossed UP1")
+alertcondition(ta.crossunder(close, dn1), "Break DN1", "Gold Fx: crossed DN1")`;
+document.getElementById('pineCode').textContent = PINE;
+function copyPine(){
+  navigator.clipboard.writeText(PINE).then(()=>toast('Copied Pine Script')).catch(()=>toast('Copy failed', true));
+}
+
+/* ========== Pro / Modals ========== */
+let PENDING_ORDER = null;
+
+function openModal(type){
+  const bg = document.getElementById('modalBg');
+  const box = document.getElementById('modalBox');
+  const u = currentUser() || {};
+  bg.classList.remove('hidden');
+  if(type==='account'){
+    box.innerHTML = `
+      <h3>Account</h3>
+      <div class="account-row">
+        <div class="avatar" style="width:44px;height:44px;font-size:16px">${(u.name||'G')[0].toUpperCase()}</div>
+        <div>
+          <b style="font-size:15px">${esc(u.name||'Trader')}</b>
+          <div style="font-size:11px;color:var(--muted)">${esc(u.email||'')}</div>
+          <div style="font-size:11px;margin-top:4px">${u.pro?'<span style="color:var(--gold)">★ PRO</span>':'Free plan'}</div>
+        </div>
+      </div>
+      ${u.pro && u.key ? `<p style="font-family:var(--mono);font-size:12px;background:var(--card);padding:10px;border-radius:10px;border:1px solid var(--line)">Key: ${esc(u.key)}</p>`:''}
+      ${!u.pro?`<button class="btn-gold" type="button" onclick="location.href='/pro'">Activate Pro · $${PRO_PRICE}</button>`:''}
+      <button class="btn-outline" type="button" onclick="openModal('tg')"><span>Telegram Community</span><span>→</span></button>
+      <button class="btn-ghost" type="button" style="color:var(--red)" onclick="logout()">Log out</button>
+      <button class="btn-ghost" type="button" onclick="closeModal()">Close</button>`;
+  } else if(type==='pro'){
+    box.innerHTML = `
+      <h3>Unlock Gold Fx Pro</h3>
+      <p>Live alerts · license key · priority signals</p>
+      <ul style="color:var(--muted);font-size:12px;line-height:1.85;margin:0 0 12px 18px">
+        <li>Browser push + priority signals</li>
+        <li>Pro badge · personal license key</li>
+        <li>Price: <b style="color:var(--gold)">$${PRO_PRICE}</b></li>
+      </ul>
+      <button class="btn-gold" type="button" onclick="location.href='/pro'">បង់ប្រាក់ KHQR</button>
+      <button class="btn-ghost" type="button" onclick="openModal('enterKey')">មាន key រួច · បញ្ចូល</button>
+      <button class="btn-ghost" type="button" onclick="closeModal()">Close</button>`;
+  } else if(type==='pay'){
+    box.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted)">កំពុងបង្កើត QR...</div>`;
+  } else if(type==='enterKey'){
+    box.innerHTML = `
+      <h3>Enter license key</h3>
+      <div class="field"><input id="manualKey" placeholder="GF-XXXX-XXXX-XXXX" style="font-family:var(--mono)"></div>
+      <button class="btn-gold" type="button" onclick="activateManualKey()">Activate</button>
+      <button class="btn-ghost" type="button" onclick="closeModal()">Close</button>`;
+  } else if(type==='tg'){
+    box.innerHTML = `
+      <h3>Telegram</h3>
+      <p>Official Gold Fx community & bot alerts</p>
+      <a class="btn-outline" href="${TG_FAMILY}" target="_blank" rel="noopener"><span>Gold Fx Family</span><span>Join</span></a>
+      <a class="btn-outline" href="${TG_BOT}" target="_blank" rel="noopener"><span>Bot Alert</span><span>Join</span></a>
+      <button class="btn-ghost" type="button" onclick="closeModal()">Close</button>`;
+  } else if(type==='alerts'){
+    markAlertsRead();
+    const list = loadAlerts();
+    box.innerHTML = `<h3>Smart Alerts</h3>
+      <div id="modalAlerts">${list.length?list.map(a=>`
+        <div class="alert-item"><div class="dot"></div><div class="txt"><b>${esc(a.t)}</b><span>${esc(a.s)}</span></div></div>`).join(''):'<p class="hint">No alerts yet</p>'}</div>
+      <button class="btn-ghost" type="button" style="margin-top:8px" onclick="enablePush()">Enable browser push</button>
+      <button class="btn-ghost" type="button" onclick="closeModal()">Close</button>`;
+  }
+}
+
+async function openPayPro(){
+  openModal('pay');
+  const box = document.getElementById('modalBox');
+  const r = await api('pro/buy', {method:'POST', body:'{}'});
+  if(!r.ok){
+    box.innerHTML = `<h3>Pro Payment</h3><p style="color:var(--red)">${esc(r.error||'Fail')}</p>
+      <button class="btn-ghost" type="button" onclick="closeModal()">Close</button>`;
+    return;
+  }
+  PENDING_ORDER = r.order;
+  const pay = r.payment || {};
+  const qr = pay.PAYMENT_QR || '';
+  const err = r.ks_error || '';
+  box.innerHTML = `
+    <h3>Pro Payment</h3>
+    <p>ស្កេន KHQR · auto activate បន្ទាប់ពីបង់</p>
+    <div class="qr-box">
+      ${qr ? `<img src="${esc(qr)}" alt="KHQR" width="180" height="180">` :
+        `<div style="padding:16px;color:#f87171;font-size:13px">❌ មិនមាន QR<br><span style="color:#64748b;font-size:12px">${esc(err||'Admin ត្រូវបំពេញ Khmer System Profile Key')}</span></div>`}
+      <div class="qr-amount">$${Number(r.order.price||PRO_PRICE).toFixed(2)}</div>
+      <div style="font-size:11px;color:#64748b">Order: <b>${esc(r.order.id)}</b></div>
+    </div>
+    <div id="payStatus" style="font-size:12px;color:var(--muted);margin:8px 0">រង់ចាំបង់ប្រាក់...</div>
+    <button class="btn-gold" type="button" id="btnPaid" onclick="confirmPaid()">ខ្ញុំបានបង់ហើយ</button>
+    <button class="btn-ghost" type="button" onclick="closeModal()">Close</button>`;
+  if(qr) startPayPoll(r.order.id);
+}
+
+function startPayPoll(orderId){
+  if(_payPoll) clearInterval(_payPoll);
+  let n = 0;
+  _payPoll = setInterval(async () => {
+    n++; if(n > 90){ clearInterval(_payPoll); return; }
+    const r = await api('pro/check', {method:'POST', body: JSON.stringify({order_id: orderId})});
+    const st = document.getElementById('payStatus');
+    if(st) st.textContent = 'ស្ថានភាព: ' + (r.payment_status||'...');
+    if(r.payment_status === 'completed' || r.order?.status === 'paid'){
+      clearInterval(_payPoll);
+      if(r.user) setProFromUser(r.user);
+      toast('Pro activated ✓');
+      closeModal();
+      openModal('account');
+    }
+  }, 4000);
+}
+
+async function confirmPaid(){
+  if(!PENDING_ORDER){ toast('No order', true); return; }
+  const btn = document.getElementById('btnPaid');
+  if(btn){ btn.disabled = true; btn.textContent = 'កំពុងផ្ទៀងផ្ទាត់...'; }
+  const r = await api('pro/confirm-paid', {method:'POST', body: JSON.stringify({order_id: PENDING_ORDER.id})});
+  if(r.user && r.user.pro){
+    if(_payPoll) clearInterval(_payPoll);
+    setProFromUser(r.user);
+    toast(r.message||'Pro activated');
+    closeModal(); openModal('account');
+    return;
+  }
+  toast(r.message || r.error || 'រង់ចាំ confirm', !r.ok);
+  if(btn){ btn.disabled = false; btn.textContent = 'ខ្ញុំបានបង់ហើយ'; }
+}
+
+async function activateManualKey(){
+  const k = (document.getElementById('manualKey')?.value||'').trim();
+  if(!k){ toast('បញ្ចូល key', true); return; }
+  const r = await api('pro/activate-key', {method:'POST', body: JSON.stringify({key:k})});
+  if(!r.ok){ toast(r.error||'Fail', true); return; }
+  setProFromUser(r.user);
+  closeModal(); openModal('account');
+}
+
+function closeModal(){
+  if(_payPoll) clearInterval(_payPoll);
+  document.getElementById('modalBg').classList.add('hidden');
+}
+function toast(msg, isErr){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('err', !!isErr);
+  t.classList.remove('hidden');
+  clearTimeout(window.__tt);
+  window.__tt = setTimeout(() => t.classList.add('hidden'), 2800);
+}
+function esc(s){
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function navTo(which){
+  if(which==='chart') document.getElementById('tv_chart').scrollIntoView({behavior:'smooth'});
+}
+
+/* ========== Init ========== */
+seedAlerts();
+document.getElementById('loginPass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('regPass').addEventListener('keydown', e => { if(e.key==='Enter') doRegister(); });
+
+api('me').then(r => {
+  if(!r.user){ location.href = '/login'; return; }
+  CURRENT = r.user;
+  enterApp();
+  startAlertSim();
+});
+</script>
+<script>
+(function(){
+  function hideLoader(){
+    var el=document.getElementById('pageLoader');
+    if(!el) return;
+    el.classList.add('hide');
+    setTimeout(function(){ el.remove(); }, 400);
+  }
+  if(document.readyState==='complete') setTimeout(hideLoader, 400);
+  else window.addEventListener('load', function(){ setTimeout(hideLoader, 350); });
+  // safety
+  setTimeout(hideLoader, 4000);
+})();
+
+
+document.addEventListener('click', function(e){
+  var a = e.target.closest('a[href]');
+  if(!a) return;
+  var href = a.getAttribute('href')||'';
+  if(href.startsWith('http') || href.startsWith('#') || href.startsWith('mailto:') || a.target==='_blank') return;
+  if(href.startsWith('/') || !href.includes(':')){
+    var el=document.getElementById('pageLoader');
+    if(!el){
+      el=document.createElement('div');
+      el.id='pageLoader';
+      el.innerHTML='<img class="pl-logo" src="/static/logo-icon.jpg" alt="" width="72" height="72"><div class="pl-name">Gold<span class="g">F</span><span class="x">x</span></div><div class="pl-bar"><i></i></div>';
+      document.body.appendChild(el);
+    } else {
+      el.classList.remove('hide');
+    }
+  }
+});
+</script>
+</body>
+</html>

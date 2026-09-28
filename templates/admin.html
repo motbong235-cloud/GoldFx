@@ -1,1 +1,290 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gold Fx · Admin</title>
+<link rel="icon" type="image/jpeg" href="/static/logo-icon.jpg">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#060a11;--panel:#0c121c;--card:#121a28;--line:rgba(148,163,184,.12);
+  --text:#eef2f7;--muted:#8b9cb3;--gold:#fbbf24;--cyan:#22d3ee;--green:#34d399;--red:#f87171;--blue:#3b82f6;
+  --font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13px;min-height:100vh}
+button,input,select{font:inherit}
+button{cursor:pointer;border:none;background:none;color:inherit}
+input,select{width:100%;padding:11px 12px;border-radius:11px;border:1px solid var(--line);background:var(--card);color:var(--text);outline:none}
+input:focus{border-color:rgba(251,191,36,.4)}
+.hidden{display:none!important}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+.top{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);margin-bottom:16px}
+.top img{width:36px;height:36px;border-radius:10px}
+.top h1{font-size:16px;font-weight:800}
+.top .sp{margin-left:auto}
+.btn{padding:10px 14px;border-radius:11px;font-weight:700;display:inline-flex;align-items:center;gap:6px}
+.btn-gold{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1200}
+.btn-ghost{background:var(--card);border:1px solid var(--line)}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-green{background:rgba(52,211,153,.2);color:var(--green);border:1px solid rgba(52,211,153,.35)}
+.btn-red{background:rgba(248,113,113,.15);color:var(--red)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.tab{padding:9px 14px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-weight:700;font-size:12px}
+.tab.on{background:rgba(251,191,36,.18);border-color:rgba(251,191,36,.4);color:var(--gold)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.stat .l{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.stat .v{font-size:22px;font-weight:800;margin-top:4px;font-family:var(--mono)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+.card h3{font-size:14px;font-weight:800;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{padding:10px 8px;text-align:left;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase}
+.mono{font-family:var(--mono)}
+.badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:800}
+.badge.paid{background:rgba(52,211,153,.15);color:var(--green)}
+.badge.pending{background:rgba(251,191,36,.15);color:var(--gold)}
+.badge.wait{background:rgba(59,130,246,.15);color:#93c5fd}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:5px}
+.gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.gate-box{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px}
+.gate-box h2{font-size:18px;font-weight:800;margin:10px 0 6px;text-align:center}
+.gate-box p{text-align:center;color:var(--muted);font-size:12px;margin-bottom:16px}
+.err{color:var(--red);font-size:12px;min-height:16px;margin:6px 0}
+.toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:50;background:#122018;border:1px solid rgba(52,211,153,.4);color:var(--green);padding:10px 16px;border-radius:12px;font-weight:700;font-size:13px}
+.toast.err{background:#1a1214;border-color:rgba(248,113,113,.4);color:var(--red)}
+.ks-box{background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.2);border-radius:12px;padding:12px;margin-bottom:12px}
+.ks-box h4{color:var(--cyan);font-size:12px;margin-bottom:8px}
 
+/* Page loader */
+#pageLoader{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:#060a11;transition:opacity .35s ease,visibility .35s}
+#pageLoader.hide{opacity:0;visibility:hidden;pointer-events:none}
+#pageLoader .pl-logo{width:72px;height:72px;border-radius:18px;object-fit:cover;
+  box-shadow:0 0 0 1px rgba(251,191,36,.25),0 12px 40px rgba(0,0,0,.45);
+  animation:plPulse 1.2s ease-in-out infinite}
+#pageLoader .pl-name{margin-top:14px;font-weight:800;font-size:18px;letter-spacing:-.03em;color:#eef2f7}
+#pageLoader .pl-name .g{color:#fbbf24}#pageLoader .pl-name .x{color:#22d3ee}
+#pageLoader .pl-bar{width:120px;height:3px;border-radius:99px;background:rgba(148,163,184,.15);margin-top:16px;overflow:hidden}
+#pageLoader .pl-bar i{display:block;height:100%;width:40%;border-radius:99px;
+  background:linear-gradient(90deg,#fbbf24,#22d3ee);animation:plSlide 1s ease-in-out infinite}
+@keyframes plPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes plSlide{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+</style>
+</head>
+<body>
+
+<div id="pageLoader" aria-busy="true" aria-label="Loading">
+  <img class="pl-logo" src="/static/logo-icon.jpg" alt="Gold Fx" width="72" height="72">
+  <div class="pl-name">Gold<span class="g">F</span><span class="x">x</span></div>
+  <div class="pl-bar"><i></i></div>
+</div>
+
+
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <div style="text-align:center"><img src="/static/logo-icon.jpg" width="56" height="56" style="border-radius:14px" alt=""></div>
+    <h2>Gold Fx Admin</h2>
+    <p>Orders · Users · Khmer System</p>
+    <div class="field"><label>Password</label><input id="admPass" type="password" placeholder="••••••••"></div>
+    <div class="err" id="admErr"></div>
+    <button class="btn btn-gold" style="width:100%" type="button" onclick="doLogin()">Login</button>
+  </div>
+</div>
+
+<div class="wrap hidden" id="app">
+  <div class="top">
+    <img src="/static/logo-icon.jpg" alt="">
+    <h1>Gold Fx Admin</h1>
+    <div class="sp"></div>
+    <a class="btn btn-ghost" href="/" target="_blank">Website</a>
+    <button class="btn btn-ghost" type="button" onclick="doLogout()">Logout</button>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="tabs">
+    <button class="tab on" data-t="orders" onclick="tab('orders')">Orders</button>
+    <button class="tab" data-t="users" onclick="tab('users')">Users</button>
+    <button class="tab" data-t="settings" onclick="tab('settings')">Settings · KS</button>
+  </div>
+
+  <div id="t-orders" class="card">
+    <h3>ការទិញ Pro (ថ្មីបំផុត)</h3>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Order</th><th>User</th><th>Price</th><th>Status</th><th>Time</th><th></th></tr></thead>
+        <tbody id="orderRows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="t-users" class="card hidden">
+    <h3>Users</h3>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Name</th><th>Email</th><th>Pro</th><th>Key</th><th>Joined</th></tr></thead>
+        <tbody id="userRows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="t-settings" class="card hidden">
+    <h3>Settings</h3>
+    <div class="ks-box">
+      <h4>Khmer System (Auto Pay)</h4>
+      <div class="field"><label>Profile Key / Secret Key *</label><input id="s_KHMER_PROFILE_KEY" placeholder="sk_live_..."></div>
+      <div class="field"><label>Secret Key (បើខុសពី Profile)</label><input id="s_KHMER_SECRET_KEY" placeholder="optional"></div>
+      <div class="field"><label>Machine ID</label><input id="s_KHMER_MACHINE_ID" placeholder="optional"></div>
+      <div class="field"><label>Merchant Name</label><input id="s_KHMER_MERCHANT_NAME" placeholder="Gold Fx"></div>
+      <div class="field"><label>Bakong ID (optional)</label><input id="s_BAKONG_ID" placeholder="name@bank"></div>
+    </div>
+    <div class="field"><label>Pro Price (USD)</label><input id="s_PRO_PRICE" type="number" step="0.01"></div>
+    <div class="field"><label>Shop Name</label><input id="s_SHOP_NAME"></div>
+    <div class="field"><label>Telegram</label><input id="s_TELEGRAM"></div>
+    <div class="field"><label>Telegram Bot</label><input id="s_TELEGRAM_BOT"></div>
+    <div class="field"><label>Admin Password</label><input id="s_ADMIN_PASSWORD" type="password" placeholder="leave blank = no change"></div>
+    <button class="btn btn-gold" type="button" onclick="saveSettings()">រក្សាទុក</button>
+  </div>
+</div>
+<div class="toast hidden" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+async function api(path, opt={}){
+  const r = await fetch('/api/'+path, {
+    headers:{'Content-Type':'application/json', ...(opt.headers||{})},
+    credentials:'same-origin',
+    ...opt,
+  });
+  return r.json().catch(()=>({ok:false,error:'network'}));
+}
+function toast(m, err){
+  const t=$('#toast'); t.textContent=m; t.classList.toggle('err',!!err); t.classList.remove('hidden');
+  clearTimeout(window.__t); window.__t=setTimeout(()=>t.classList.add('hidden'),2800);
+}
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+async function doLogin(){
+  const r = await api('admin/login',{method:'POST',body:JSON.stringify({password:$('#admPass').value})});
+  if(!r.ok){ $('#admErr').textContent=r.error||'Fail'; return; }
+  $('#gate').classList.add('hidden'); $('#app').classList.remove('hidden');
+  load();
+}
+async function doLogout(){ await api('admin/logout',{method:'POST'}); location.reload(); }
+
+function tab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t.dataset.t===name));
+  ['orders','users','settings'].forEach(n=>{
+    const el=$('#t-'+n); if(el) el.classList.toggle('hidden', n!==name);
+  });
+}
+
+let DATA={};
+async function load(){
+  const r = await api('admin/data');
+  if(!r.ok){ if(r.error==='Unauthorized') location.reload(); return; }
+  DATA=r;
+  const s=r.stats||{};
+  $('#stats').innerHTML = `
+    <div class="stat"><div class="l">Users</div><div class="v">${s.users||0}</div></div>
+    <div class="stat"><div class="l">Pro</div><div class="v" style="color:var(--gold)">${s.pro||0}</div></div>
+    <div class="stat"><div class="l">Orders</div><div class="v">${s.orders||0}</div></div>
+    <div class="stat"><div class="l">Paid</div><div class="v" style="color:var(--green)">${s.paid||0}</div></div>
+    <div class="stat"><div class="l">Pending</div><div class="v" style="color:var(--gold)">${s.pending||0}</div></div>`;
+
+  $('#orderRows').innerHTML = (r.orders||[]).map(o=>{
+    const st = o.status==='paid'?'paid':(o.status==='waiting_confirm'?'wait':'pending');
+    const label = o.status==='paid'?'PAID':(o.status==='waiting_confirm'?'WAIT':'PENDING');
+    const btn = o.status!=='paid'
+      ? `<button class="btn btn-green" style="padding:5px 10px;font-size:11px" onclick="confirmOrder('${esc(o.id)}')">Confirm</button>`
+      : `<span class="mono" style="font-size:10px">${esc(o.license_key||'')}</span>`;
+    return `<tr>
+      <td class="mono">${esc(o.id)}</td>
+      <td>${esc(o.name)}<div style="font-size:10px;color:var(--muted)">${esc(o.email)}</div></td>
+      <td class="mono">$${Number(o.price||0).toFixed(2)}</td>
+      <td><span class="badge ${st}">${label}</span></td>
+      <td style="font-size:10px;color:var(--muted)">${esc((o.created_at||'').replace('T',' ').slice(0,19))}</td>
+      <td>${btn}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="6" style="color:var(--muted)">មិនទាន់មាន order</td></tr>`;
+
+  $('#userRows').innerHTML = (r.users||[]).map(u=>`
+    <tr>
+      <td>${esc(u.name)}</td>
+      <td>${esc(u.email)}</td>
+      <td>${u.pro?'<span class="badge paid">PRO</span>':'—'}</td>
+      <td class="mono" style="font-size:10px">${esc(u.key||'')}</td>
+      <td style="font-size:10px;color:var(--muted)">${esc((u.created||'').slice(0,10))}</td>
+    </tr>`).join('') || `<tr><td colspan="5" style="color:var(--muted)">No users</td></tr>`;
+
+  const set=r.settings||{};
+  ['KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','KHMER_MERCHANT_NAME','BAKONG_ID','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT'].forEach(k=>{
+    const el=$('#s_'+k); if(el) el.value = set[k]??'';
+  });
+  $('#s_ADMIN_PASSWORD').value = '';
+}
+
+async function confirmOrder(id){
+  const r = await api('admin/order/confirm',{method:'POST',body:JSON.stringify({order_id:id})});
+  toast(r.message||(r.ok?'OK':r.error), !r.ok);
+  load();
+}
+async function saveSettings(){
+  const body={};
+  ['KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','KHMER_MERCHANT_NAME','BAKONG_ID','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','ADMIN_PASSWORD'].forEach(k=>{
+    const el=$('#s_'+k);
+    if(!el) return;
+    if(k==='ADMIN_PASSWORD' && !el.value) return;
+    body[k]=el.value;
+  });
+  // mirror profile into secret if secret empty
+  if(body.KHMER_PROFILE_KEY && !body.KHMER_SECRET_KEY) body.KHMER_SECRET_KEY = body.KHMER_PROFILE_KEY;
+  const r = await api('admin/settings',{method:'PUT',body:JSON.stringify(body)});
+  toast(r.ok?'រក្សាទុកហើយ':(r.error||'Fail'), !r.ok);
+  load();
+}
+
+$('#admPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+api('admin/me').then(r=>{
+  if(r.admin){ $('#gate').classList.add('hidden'); $('#app').classList.remove('hidden'); load(); setInterval(load, 15000); }
+});
+</script>
+<script>
+(function(){
+  function hideLoader(){
+    var el=document.getElementById('pageLoader');
+    if(!el) return;
+    el.classList.add('hide');
+    setTimeout(function(){ el.remove(); }, 400);
+  }
+  if(document.readyState==='complete') setTimeout(hideLoader, 400);
+  else window.addEventListener('load', function(){ setTimeout(hideLoader, 350); });
+  // safety
+  setTimeout(hideLoader, 4000);
+})();
+
+
+document.addEventListener('click', function(e){
+  var a = e.target.closest('a[href]');
+  if(!a) return;
+  var href = a.getAttribute('href')||'';
+  if(href.startsWith('http') || href.startsWith('#') || href.startsWith('mailto:') || a.target==='_blank') return;
+  if(href.startsWith('/') || !href.includes(':')){
+    var el=document.getElementById('pageLoader');
+    if(!el){
+      el=document.createElement('div');
+      el.id='pageLoader';
+      el.innerHTML='<img class="pl-logo" src="/static/logo-icon.jpg" alt="" width="72" height="72"><div class="pl-name">Gold<span class="g">F</span><span class="x">x</span></div><div class="pl-bar"><i></i></div>';
+      document.body.appendChild(el);
+    } else {
+      el.classList.remove('hide');
+    }
+  }
+});
+</script>
+</body>
+</html>
