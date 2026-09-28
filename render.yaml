@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: gold-fx
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app --bind 0.0.0.0:$PORT --workers 1 --threads 4
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        value: admin123
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: gold-fx-data
+      mountPath: /var/data
+      sizeGB: 1
