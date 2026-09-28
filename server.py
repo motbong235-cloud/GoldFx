@@ -23,11 +23,38 @@ from flask import (
 import khmer_system
 
 BASE = Path(__file__).resolve().parent
-DATA_DIR = Path(os.environ.get("DATA_DIR", str(BASE / "data")))
-DB_PATH = DATA_DIR / "db.json"
-DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
+
+def _resolve_data_dir() -> Path:
+    """Prefer DATA_DIR env (Render disk), else local data/, else /tmp fallback."""
+    candidates = []
+    env = (os.environ.get("DATA_DIR") or "").strip()
+    if env:
+        candidates.append(Path(env))
+    candidates.append(BASE / "data")
+    candidates.append(Path("/tmp/gold-fx-data"))
+    for d in candidates:
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+            test = d / ".write_test"
+            test.write_text("ok", encoding="utf-8")
+            test.unlink(missing_ok=True)
+            return d
+        except Exception:
+            continue
+    # last resort: BASE/data even if not writable (will error later with clear msg)
+    d = BASE / "data"
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+    return d
+
+
+DATA_DIR = _resolve_data_dir()
+DB_PATH = DATA_DIR / "db.json"
+
+app = Flask(__name__, static_folder=str(BASE / "static"), template_folder=str(BASE / "templates"))
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(24))
 
 
@@ -67,6 +94,7 @@ def db_read() -> dict:
 
 
 def db_write(d: dict) -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     tmp = DB_PATH.with_suffix(".tmp")
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(d, f, ensure_ascii=False, indent=2)
@@ -544,7 +572,24 @@ def admin_settings():
 
 @app.get("/health")
 def health():
-    return jsonify({"ok": True, "app": "Gold Fx"})
+    return jsonify({
+        "ok": True,
+        "app": "Gold Fx",
+        "data_dir": str(DATA_DIR),
+        "db_exists": DB_PATH.exists(),
+    })
+
+
+
+@app.errorhandler(500)
+def err_500(e):
+    return (
+        "<h1>Server Error</h1><pre style='white-space:pre-wrap'>"
+        + str(getattr(e, "original_exception", e))
+        + "</pre><p><a href='/health'>/health</a></p>",
+        500,
+    )
+
 
 
 if __name__ == "__main__":
