@@ -62,23 +62,29 @@ def create_khqr(
     bill_number: str = "",
     store_label: str = "Gold Fx",
 ) -> str:
-    """Build dynamic KHQR payload (EMVCo / Bakong)."""
+    """Build dynamic KHQR (EMVCo / KHQR Content Guideline v1.3).
+
+    Tag 29 Individual: sub-tag 00 = Bakong Account ID only.
+    Example: 00020101021229180014name@bank52045999...6304XXXX
+    """
     bakong_id = (bakong_id or "").strip()
     merchant_name = (merchant_name or "Gold Fx").strip()[:25]
     merchant_city = (merchant_city or "Phnom Penh").strip()[:15]
     currency = (currency or "USD").upper()
     if currency not in ("USD", "KHR"):
         currency = "USD"
+    if not bakong_id or "@" not in bakong_id:
+        raise ValueError("Bakong ID ត្រូវទម្រង់ name@bank (ឧ. name@aba)")
 
-    # Merchant Account Information (tag 29) — Bakong account
-    mai = _tlv("00", "bakong") + _tlv("01", bakong_id)
+    # Official Tag 29: 00{len}{bakong_account_id}  — NOT bakong+01+id
+    mai = _tlv("00", bakong_id)
+
     payload = ""
     payload += _tlv("00", "01")          # Payload Format Indicator
-    payload += _tlv("01", "12")          # Point of Initiation — dynamic
+    payload += _tlv("01", "12")          # Dynamic QR
     payload += _tlv("29", mai)           # Merchant Account Information
-    payload += _tlv("52", "5999")        # MCC — miscellaneous
+    payload += _tlv("52", "5999")        # MCC
     payload += _tlv("53", "840" if currency == "USD" else "116")
-    # Amount
     if currency == "USD":
         amt_s = f"{float(amount):.2f}"
     else:
@@ -88,7 +94,6 @@ def create_khqr(
     payload += _tlv("59", merchant_name)
     payload += _tlv("60", merchant_city)
 
-    # Additional Data Field (tag 62)
     add = ""
     if bill_number:
         add += _tlv("01", str(bill_number)[:25])
@@ -97,6 +102,7 @@ def create_khqr(
     if add:
         payload += _tlv("62", add)
 
+    # CRC-16 over payload including the "6304" tag+length
     payload += "6304"
     payload += _crc16(payload)
     return payload
