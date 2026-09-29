@@ -16,7 +16,14 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-BIN = "https://api.binance.com/api/v3/"
+# data-api.binance.vision = public market-data mirror (not geo-blocked like api.binance.com)
+BASES = [
+    "https://data-api.binance.vision/api/v3/",
+    "https://api.binance.com/api/v3/",
+    "https://api1.binance.com/api/v3/",
+    "https://api2.binance.com/api/v3/",
+]
+_good = 0
 LEN, RNG = 50, 1.0            # same as Pine indicator + dashboard
 COOLDOWN = 5 * 60             # sec per symbol/tf/level/direction
 LEVEL_REFRESH = 30
@@ -27,10 +34,21 @@ STATE = {"running": False, "last_sent": "", "last_error": "", "sent_count": 0}
 _lock_fh = None
 
 
-def _get_json(url, timeout=15):
-    req = urllib.request.Request(url, headers={"User-Agent": "goldfx-signal"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode())
+def market(path: str, timeout: int = 6):
+    """GET a Binance market-data path (e.g. 'klines?symbol=..') trying mirrors in turn."""
+    global _good
+    last = None
+    for n in range(len(BASES)):
+        i = (_good + n) % len(BASES)
+        try:
+            req = urllib.request.Request(BASES[i] + path, headers={"User-Agent": "goldfx-signal"})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                data = json.loads(r.read().decode())
+            _good = i
+            return data
+        except Exception as e:
+            last = e
+    raise last
 
 
 def compute_levels(kl):
@@ -97,10 +115,10 @@ def _loop(get_settings):
                 for tf in tfs:
                     k = (sym, tf)
                     if now - last_lvl.get(k, 0) >= LEVEL_REFRESH:
-                        kl = _get_json(f"{BIN}klines?symbol={sym}&interval={tf}&limit={LEN + 5}")
+                        kl = market(f"klines?symbol={sym}&interval={tf}&limit={LEN + 5}")
                         levels[k] = compute_levels(kl)
                         last_lvl[k] = now
-                price = float(_get_json(f"{BIN}ticker/price?symbol={sym}")["price"])
+                price = float(market(f"ticker/price?symbol={sym}")["price"])
                 p0, prev[sym] = prev.get(sym), price
                 if p0 is None:
                     continue

@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import hashlib
+import re
+import time
 import json
 import os
 import secrets
@@ -212,6 +214,43 @@ def me():
         session.pop("user_email", None)
         return jsonify({"ok": True, "user": None})
     return jsonify({"ok": True, "user": public_user(u)})
+
+
+_MKT_CACHE: dict = {}
+_MKT_INTERVALS = {"1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "1d"}
+
+
+@app.route("/api/mkt/<path:p>")
+def market_proxy(p):
+    """Cached same-origin proxy for Binance market data (avoids client-side blocks / CORS)."""
+    a = request.args
+    sym = (a.get("symbol") or "").upper()
+    if not re.fullmatch(r"[A-Z0-9]{5,12}", sym):
+        return jsonify({"ok": False, "error": "bad symbol"}), 400
+    if p == "klines":
+        itv = a.get("interval") or "15m"
+        try:
+            lim = max(1, min(100, int(a.get("limit") or 55)))
+        except ValueError:
+            lim = 55
+        if itv not in _MKT_INTERVALS:
+            return jsonify({"ok": False, "error": "bad interval"}), 400
+        path, ttl = f"klines?symbol={sym}&interval={itv}&limit={lim}", 10
+    elif p == "ticker/price":
+        path, ttl = f"ticker/price?symbol={sym}", 1.5
+    else:
+        return jsonify({"ok": False, "error": "not allowed"}), 404
+    hit = _MKT_CACHE.get(path)
+    if hit and time.time() - hit[0] < ttl:
+        return jsonify(hit[1])
+    try:
+        data = signal_engine.market(path)
+    except Exception as e:
+        if hit:                      # serve stale rather than fail
+            return jsonify(hit[1])
+        return jsonify({"ok": False, "error": str(e)[:200]}), 502
+    _MKT_CACHE[path] = (time.time(), data)
+    return jsonify(data)
 
 
 @app.route("/api/config")
