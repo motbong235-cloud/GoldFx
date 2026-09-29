@@ -266,16 +266,10 @@ pre.pine{background:var(--card);border:1px solid var(--line);border-radius:12px;
 
   <aside class="side">
     <div class="side-tabs">
-      <button type="button" class="on" data-tab="levels">Levels</button>
-      <button type="button" data-tab="inds">Indicators</button>
+      <button type="button" class="on" data-tab="inds">Indicators</button>
       <button type="button" data-tab="alerts">Alerts</button>
-      <button type="button" data-tab="code" id="codeTabBtn" style="display:none">Code</button>
     </div>
-    <div class="side-body" id="tab-levels">
-      <div class="levels" id="levelsList"></div>
-      <p class="hint">UP/DN = range structure · LIVE = last · MEAN = midpoint · OPEN = session ref</p>
-    </div>
-    <div class="side-body hidden" id="tab-inds">
+    <div class="side-body" id="tab-inds">
       <div class="ind-grid" id="indsList">
         <p class="hint">កំពុងគណនា indicators…</p>
       </div>
@@ -284,13 +278,6 @@ pre.pine{background:var(--card);border:1px solid var(--line);border-radius:12px;
     <div class="side-body hidden" id="tab-alerts">
       <button class="btn-ghost" type="button" style="margin-bottom:10px" onclick="enablePush()">🔔 Enable browser alerts</button>
       <div id="alertsList"></div>
-    </div>
-    <div class="side-body hidden" id="tab-code">
-      <div id="codeLocked" class="hint hidden" style="margin-top:0">🔒 Indicator សម្រាប់ Pro តែប៉ុណ្ណោះ · <a href="/pro" style="color:var(--gold)">Activate Pro</a></div>
-      <div id="codeWrap" class="hidden">
-        <pre class="pine" id="codeBox"></pre>
-        <button class="btn-ghost" type="button" style="margin-top:10px" onclick="copyIndicator()">Copy indicator</button>
-      </div>
     </div>
   </aside>
 </div>
@@ -472,7 +459,7 @@ document.querySelectorAll('.side-tabs button').forEach(b => {
   b.onclick = () => {
     document.querySelectorAll('.side-tabs button').forEach(x => x.classList.remove('on'));
     b.classList.add('on');
-    ['levels','inds','alerts','code'].forEach(id => {
+    ['inds','alerts'].forEach(id => {
       const el = document.getElementById('tab-'+id);
       if(el) el.classList.toggle('hidden', b.dataset.tab !== id);
     });
@@ -542,13 +529,7 @@ function buildLevels(price){
 }
 
 function renderLevels(price){
-  const el = document.getElementById('levelsList');
   if(price) document.getElementById('livePrice').textContent = fmt(price);
-  if(!LEVELS || !price){ el.innerHTML = '<p class="hint">កំពុងទាញទិន្នន័យពិត…</p>'; return; }
-  el.innerHTML = buildLevels(price).map(l =>
-    `<div class="lvl ${l.cls}"><span class="tag">${l.tag}</span><span>${fmt(l.price)}</span></div>`
-  ).join('');
-  document.getElementById('livePrice').textContent = fmt(price);
 }
 
 
@@ -1099,28 +1080,6 @@ document.getElementById('chatInput')?.addEventListener('keydown', e => {
 /* ========== Init ========== */
 seedAlerts();
 
-let INDICATOR = '';
-function copyIndicator(){
-  if(!INDICATOR) return;
-  navigator.clipboard.writeText(INDICATOR).then(()=>toast('Copied indicator')).catch(()=>toast('Copy failed', true));
-}
-function loadIndicator(){
-  api('indicator').then(r => {
-    if(!r || !r.ok) return;
-    const btn = document.getElementById('codeTabBtn');
-    if(r.locked){
-      btn.style.display = '';
-      document.getElementById('codeLocked').classList.remove('hidden');
-      document.getElementById('codeWrap').classList.add('hidden');
-    } else if(r.code){
-      INDICATOR = r.code;
-      btn.style.display = '';
-      document.getElementById('codeBox').textContent = r.code;
-      document.getElementById('codeWrap').classList.remove('hidden');
-      document.getElementById('codeLocked').classList.add('hidden');
-    }
-  }).catch(()=>{});
-}
 
 function tgUrl(v){
   v = String(v||'').trim();
@@ -1139,7 +1098,6 @@ api('me').then(r => {
   if(!r.user){ location.href = '/login'; return; }
   CURRENT = r.user;
   enterApp();
-  loadIndicator();
   seedChatIfEmpty();
 });
 </script>
