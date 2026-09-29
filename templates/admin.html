@@ -74,6 +74,50 @@ th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase}
   background:linear-gradient(90deg,#fbbf24,#22d3ee);animation:plSlide 1s ease-in-out infinite}
 @keyframes plPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 @keyframes plSlide{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+
+/* Official KHQR card (Bakong NBC style) */
+.khqr-card{
+  width:min(280px,82vw);margin:0 auto;background:#fff;border-radius:14px;
+  overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.06);
+  font-family:'Inter',system-ui,sans-serif;color:#111;
+}
+.khqr-head{
+  background:linear-gradient(135deg,#e11d2e 0%,#c01020 100%);
+  padding:14px 16px 12px;position:relative;min-height:52px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.khqr-head::after{
+  content:'';position:absolute;right:0;top:0;width:0;height:0;
+  border-style:solid;border-width:0 36px 36px 0;border-color:transparent #fff transparent transparent;
+  opacity:.95;
+}
+.khqr-logo{display:flex;align-items:center;gap:8px;z-index:1}
+.khqr-logo-mark{
+  width:28px;height:28px;border-radius:6px;background:#fff;display:grid;place-items:center;
+  font-weight:900;font-size:11px;color:#e11d2e;letter-spacing:-.04em;line-height:1;
+}
+.khqr-logo-text{color:#fff;font-weight:800;font-size:18px;letter-spacing:.02em}
+.khqr-logo-text span{font-weight:600;opacity:.9;font-size:13px;margin-left:2px}
+.khqr-body{padding:16px 18px 20px;text-align:center}
+.khqr-merchant{font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:4px;word-break:break-word}
+.khqr-amount{font-size:22px;font-weight:800;color:#111;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.khqr-amount .cur{font-size:14px;font-weight:700;color:#666;margin-left:4px}
+.khqr-dash{border:none;border-top:1.5px dashed #d1d5db;margin:14px 0 16px}
+.khqr-qr-wrap{
+  position:relative;display:inline-block;padding:8px;background:#fff;
+  border-radius:8px;line-height:0;
+}
+.khqr-qr-wrap img{width:180px;height:180px;display:block;border-radius:4px}
+.khqr-currency-badge{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:36px;height:36px;border-radius:50%;background:#fff;
+  border:2px solid #e11d2e;display:grid;place-items:center;
+  font-weight:900;font-size:16px;color:#e11d2e;box-shadow:0 2px 8px rgba(0,0,0,.12);
+}
+.khqr-foot{margin-top:12px;font-size:10px;color:#9ca3af;font-weight:600;letter-spacing:.04em}
+.khqr-err{padding:28px 16px;color:#e11d2e;font-size:13px;font-weight:700;line-height:1.5;text-align:center}
+.khqr-err small{display:block;margin-top:8px;color:#6b7280;font-size:11px;font-weight:500}
+
 </style>
 </head>
 <body>
@@ -181,8 +225,25 @@ th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase}
       <input type="hidden" id="s_KHMER_MACHINE_ID" value="">
       <button class="btn btn-green" type="button" onclick="testBakong()" style="margin-top:4px">សាកល្បង Bakong QR ($0.01)</button>
       <p id="bakongTestStatus" style="font-size:11px;color:var(--muted);margin:8px 0 0;line-height:1.4"></p>
-      <div id="bakongTestQr" class="hidden" style="margin-top:10px;text-align:center;background:#fff;border-radius:12px;padding:12px">
-        <img id="bakongTestImg" alt="test QR" style="width:160px;height:160px">
+      <div id="bakongTestQr" class="hidden" style="margin-top:12px">
+        <div class="khqr-card" style="width:min(260px,90%)">
+          <div class="khqr-head">
+            <div class="khqr-logo">
+              <div class="khqr-logo-mark">KH</div>
+              <div class="khqr-logo-text">KHQR<span>Bakong</span></div>
+            </div>
+          </div>
+          <div class="khqr-body">
+            <div class="khqr-merchant" id="bakongTestMerchant">Gold Fx</div>
+            <div class="khqr-amount">0.01<span class="cur">USD</span></div>
+            <hr class="khqr-dash">
+            <div class="khqr-qr-wrap">
+              <img id="bakongTestImg" alt="test QR" width="160" height="160" style="width:160px;height:160px">
+              <div class="khqr-currency-badge">$</div>
+            </div>
+            <div class="khqr-foot">TEST · SCAN WITH ANY BANKING APP</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -315,6 +376,7 @@ async function testBakong(){
     if(st) st.innerHTML='<span style="color:var(--green)">✓ '+esc(r.message||'OK')+'</span>'+(r.bakong_id?' · '+esc(r.bakong_id):'');
     if(r.qr_image_url && box){
       $('#bakongTestImg').src=r.qr_image_url;
+      const mn=$('#bakongTestMerchant'); if(mn) mn.textContent=r.merchant||($('#s_KHMER_MERCHANT_NAME')&&$('#s_KHMER_MERCHANT_NAME').value)||'Gold Fx';
       box.classList.remove('hidden');
     }
     toast('Bakong QR OK ✓');

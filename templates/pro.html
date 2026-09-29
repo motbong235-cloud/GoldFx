@@ -82,6 +82,50 @@ ul.feat li .ic{width:28px;height:28px;border-radius:8px;display:grid;place-items
 #pageLoader .pl-bar i{display:block;height:100%;width:40%;border-radius:99px;background:linear-gradient(90deg,#fbbf24,#22d3ee);animation:plSlide 1s ease-in-out infinite}
 @keyframes plPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 @keyframes plSlide{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+
+/* Official KHQR card (Bakong NBC style) */
+.khqr-card{
+  width:min(280px,82vw);margin:0 auto;background:#fff;border-radius:14px;
+  overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.06);
+  font-family:'Inter',system-ui,sans-serif;color:#111;
+}
+.khqr-head{
+  background:linear-gradient(135deg,#e11d2e 0%,#c01020 100%);
+  padding:14px 16px 12px;position:relative;min-height:52px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.khqr-head::after{
+  content:'';position:absolute;right:0;top:0;width:0;height:0;
+  border-style:solid;border-width:0 36px 36px 0;border-color:transparent #fff transparent transparent;
+  opacity:.95;
+}
+.khqr-logo{display:flex;align-items:center;gap:8px;z-index:1}
+.khqr-logo-mark{
+  width:28px;height:28px;border-radius:6px;background:#fff;display:grid;place-items:center;
+  font-weight:900;font-size:11px;color:#e11d2e;letter-spacing:-.04em;line-height:1;
+}
+.khqr-logo-text{color:#fff;font-weight:800;font-size:18px;letter-spacing:.02em}
+.khqr-logo-text span{font-weight:600;opacity:.9;font-size:13px;margin-left:2px}
+.khqr-body{padding:16px 18px 20px;text-align:center}
+.khqr-merchant{font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:4px;word-break:break-word}
+.khqr-amount{font-size:22px;font-weight:800;color:#111;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.khqr-amount .cur{font-size:14px;font-weight:700;color:#666;margin-left:4px}
+.khqr-dash{border:none;border-top:1.5px dashed #d1d5db;margin:14px 0 16px}
+.khqr-qr-wrap{
+  position:relative;display:inline-block;padding:8px;background:#fff;
+  border-radius:8px;line-height:0;
+}
+.khqr-qr-wrap img{width:180px;height:180px;display:block;border-radius:4px}
+.khqr-currency-badge{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:36px;height:36px;border-radius:50%;background:#fff;
+  border:2px solid #e11d2e;display:grid;place-items:center;
+  font-weight:900;font-size:16px;color:#e11d2e;box-shadow:0 2px 8px rgba(0,0,0,.12);
+}
+.khqr-foot{margin-top:12px;font-size:10px;color:#9ca3af;font-weight:600;letter-spacing:.04em}
+.khqr-err{padding:28px 16px;color:#e11d2e;font-size:13px;font-weight:700;line-height:1.5;text-align:center}
+.khqr-err small{display:block;margin-top:8px;color:#6b7280;font-size:11px;font-weight:500}
+
 </style>
 </head>
 <body>
@@ -177,8 +221,12 @@ async function buy(){
     return;
   }
   ORDER = r.order;
-  const qr = (r.payment || {}).PAYMENT_QR || '';
-  const err = r.ks_error || '';
+  const qr = (r.payment && r.payment.PAYMENT_QR)
+    || (r.khmer_system && (r.khmer_system.qr_image_url || r.khmer_system.qr))
+    || (r.order && r.order.payment_qr)
+    || '';
+  const err = r.ks_error || (r.bakong && !r.bakong.enabled ? 'Bakong មិនទាន់ enable' : '') || '';
+  console.log('pro/buy', {ok:r.ok, hasQr:!!qr, err, bakong:r.bakong});
   const amt = Number(r.order.price || PRICE).toFixed(2);
   expireAt = Date.now() + EXPIRE_SEC * 1000;
 
@@ -194,14 +242,29 @@ async function buy(){
       <div class="step" id="stepAct"><span class="n">3</span> Auto activate Pro</div>
     </div>
 
-    <div class="qr-wrap">
-      ${qr
-        ? `<img src="${esc(qr)}" alt="KHQR" width="240" height="240">`
-        : `<div class="qr-err">❌ មិនមាន QR<small>${esc(err || 'Admin ត្រូវដាក់ Khmer System Profile Key ក្នុង Settings')}</small></div>`}
+    <div style="margin:14px 0 10px">
+      <div class="khqr-card">
+        <div class="khqr-head">
+          <div class="khqr-logo">
+            <div class="khqr-logo-mark">KH</div>
+            <div class="khqr-logo-text">KHQR<span>Bakong</span></div>
+          </div>
+        </div>
+        <div class="khqr-body">
+          ${qr ? `
+            <div class="khqr-merchant">${esc((r.payment&&r.payment.MERCHANT)||(r.bakong&&r.bakong.merchant)||'Gold Fx')}</div>
+            <div class="khqr-amount">${amt}<span class="cur">USD</span></div>
+            <hr class="khqr-dash">
+            <div class="khqr-qr-wrap">
+              <img src="${esc(qr)}" alt="KHQR" width="180" height="180">
+              <div class="khqr-currency-badge">$</div>
+            </div>
+            <div class="khqr-foot">SCAN WITH ANY BANKING APP</div>
+          ` : `<div class="khqr-err">❌ មិនមាន QR<br><small>${esc(err||'Admin ត្រូវដាក់ Bakong Token + Bakong ID')}</small></div>`}
+        </div>
+      </div>
     </div>
-
-    <div class="pay-amt">$${amt}</div>
-    <div class="pay-meta">Order: <b>${esc(r.order.id)}</b> · Bakong KHQR</div>
+    <div class="pay-meta" style="text-align:center;margin-top:8px">Order: <b>${esc(r.order.id)}</b> · Bakong KHQR</div>
 
     <div class="timer" id="timer"><span id="tm">10</span>:<span id="ts">00</span></div>
 
