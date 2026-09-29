@@ -219,6 +219,7 @@ pre.pine{background:var(--card);border:1px solid var(--line);border-radius:12px;
     <div class="side-tabs">
       <button type="button" class="on" data-tab="levels">Levels</button>
       <button type="button" data-tab="alerts">Alerts</button>
+      <button type="button" data-tab="code" id="codeTabBtn" style="display:none">Code</button>
     </div>
     <div class="side-body" id="tab-levels">
       <div class="levels" id="levelsList"></div>
@@ -227,6 +228,13 @@ pre.pine{background:var(--card);border:1px solid var(--line);border-radius:12px;
     <div class="side-body hidden" id="tab-alerts">
       <button class="btn-ghost" type="button" style="margin-bottom:10px" onclick="enablePush()">🔔 Enable browser alerts</button>
       <div id="alertsList"></div>
+    </div>
+    <div class="side-body hidden" id="tab-code">
+      <div id="codeLocked" class="hint hidden" style="margin-top:0">🔒 Indicator សម្រាប់ Pro តែប៉ុណ្ណោះ · <a href="/pro" style="color:var(--gold)">Activate Pro</a></div>
+      <div id="codeWrap" class="hidden">
+        <pre class="pine" id="codeBox"></pre>
+        <button class="btn-ghost" type="button" style="margin-top:10px" onclick="copyIndicator()">Copy indicator</button>
+      </div>
     </div>
   </aside>
 </div>
@@ -382,7 +390,7 @@ document.querySelectorAll('.side-tabs button').forEach(b => {
   b.onclick = () => {
     document.querySelectorAll('.side-tabs button').forEach(x => x.classList.remove('on'));
     b.classList.add('on');
-    ['levels','alerts'].forEach(id => {
+    ['levels','alerts','code'].forEach(id => {
       document.getElementById('tab-'+id).classList.toggle('hidden', b.dataset.tab !== id);
     });
   };
@@ -761,6 +769,29 @@ function navTo(which){
 /* ========== Init ========== */
 seedAlerts();
 
+let INDICATOR = '';
+function copyIndicator(){
+  if(!INDICATOR) return;
+  navigator.clipboard.writeText(INDICATOR).then(()=>toast('Copied indicator')).catch(()=>toast('Copy failed', true));
+}
+function loadIndicator(){
+  api('indicator').then(r => {
+    if(!r || !r.ok) return;
+    const btn = document.getElementById('codeTabBtn');
+    if(r.locked){
+      btn.style.display = '';
+      document.getElementById('codeLocked').classList.remove('hidden');
+      document.getElementById('codeWrap').classList.add('hidden');
+    } else if(r.code){
+      INDICATOR = r.code;
+      btn.style.display = '';
+      document.getElementById('codeBox').textContent = r.code;
+      document.getElementById('codeWrap').classList.remove('hidden');
+      document.getElementById('codeLocked').classList.add('hidden');
+    }
+  }).catch(()=>{});
+}
+
 function tgUrl(v){
   v = String(v||'').trim();
   if(!v) return 'https://t.me/';
@@ -778,6 +809,7 @@ api('me').then(r => {
   if(!r.user){ location.href = '/login'; return; }
   CURRENT = r.user;
   enterApp();
+  loadIndicator();
 });
 </script>
 <script>

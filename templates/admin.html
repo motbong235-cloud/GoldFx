@@ -16,6 +16,7 @@
 body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13px;min-height:100vh}
 button,input,select{font:inherit}
 button{cursor:pointer;border:none;background:none;color:inherit}
+textarea{width:100%;padding:11px 12px;border-radius:11px;border:1px solid var(--line);background:var(--card);color:var(--text);outline:none;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.5;min-height:220px;resize:vertical;white-space:pre;overflow:auto}
 input,select{width:100%;padding:11px 12px;border-radius:11px;border:1px solid var(--line);background:var(--card);color:var(--text);outline:none}
 input:focus{border-color:rgba(251,191,36,.4)}
 .hidden{display:none!important}
@@ -151,6 +152,11 @@ th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase}
       <p id="sigStatus" style="font-size:11px;color:var(--muted);margin:0 0 10px"></p>
       <button class="btn btn-green" type="button" onclick="testSignal()">ផ្ញើ test ទៅ channel</button>
     </div>
+    <div class="ks-box">
+      <h4>Indicator Code</h4>
+      <div class="field"><label>កូដ Indicator (Pine Script ឬអក្សរផ្សេង) · ទទេ = លាក់ផ្ទាំង Code</label><textarea id="s_INDICATOR_CODE" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Paste indicator code here..."></textarea></div>
+      <div class="field"><label>អ្នកអាចមើលបាន</label><select id="s_INDICATOR_ACCESS"><option value="all">អ្នកប្រើទាំងអស់</option><option value="pro">Pro តែប៉ុណ្ណោះ</option></select></div>
+    </div>
     <div class="field"><label>Pro Price (USD)</label><input id="s_PRO_PRICE" type="number" step="0.01"></div>
     <div class="field"><label>Shop Name</label><input id="s_SHOP_NAME"></div>
     <div class="field"><label>Telegram</label><input id="s_TELEGRAM"></div>
@@ -231,8 +237,8 @@ async function load(){
     </tr>`).join('') || `<tr><td colspan="5" style="color:var(--muted)">No users</td></tr>`;
 
   const set=r.settings||{};
-  ['KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','KHMER_MERCHANT_NAME','BAKONG_ID','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED'].forEach(k=>{
-    const el=$('#s_'+k); if(el) el.value = set[k]??(k==='SIGNAL_ENABLED'?'1':'');
+  ['KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','KHMER_MERCHANT_NAME','BAKONG_ID','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','INDICATOR_CODE','INDICATOR_ACCESS'].forEach(k=>{
+    const el=$('#s_'+k); if(el) el.value = set[k]??(k==='SIGNAL_ENABLED'?'1':(k==='INDICATOR_ACCESS'?'all':''));
   });
   $('#s_ADMIN_PASSWORD').value = '';
   const sg=r.signal||{};
@@ -250,7 +256,7 @@ async function confirmOrder(id){
 }
 async function saveSettings(){
   const body={};
-  ['KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','KHMER_MERCHANT_NAME','BAKONG_ID','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','ADMIN_PASSWORD'].forEach(k=>{
+  ['KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','KHMER_MERCHANT_NAME','BAKONG_ID','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','INDICATOR_CODE','INDICATOR_ACCESS','ADMIN_PASSWORD'].forEach(k=>{
     const el=$('#s_'+k);
     if(!el) return;
     if(k==='ADMIN_PASSWORD' && !el.value) return;
