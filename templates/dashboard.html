@@ -776,8 +776,6 @@ function navTo(which){
 
 /* ========== Init ========== */
 seedAlerts();
-document.getElementById('loginPass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
-document.getElementById('regPass').addEventListener('keydown', e => { if(e.key==='Enter') doRegister(); });
 
 function tgUrl(v){
   v = String(v||'').trim();
