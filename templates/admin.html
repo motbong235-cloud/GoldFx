@@ -89,7 +89,7 @@ th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase}
   <div class="gate-box">
     <div style="text-align:center"><img src="/static/logo-icon.jpg" width="56" height="56" style="border-radius:14px" alt=""></div>
     <h2>Gold Fx Admin</h2>
-    <p>Orders · Users · Khmer System</p>
+    <p>Orders · Users · Bakong Auto Pay</p>
     <div class="field"><label>Password</label><input id="admPass" type="password" placeholder="••••••••"></div>
     <div class="err" id="admErr"></div>
     <button class="btn btn-gold" style="width:100%" type="button" onclick="doLogin()">Login</button>
@@ -110,7 +110,7 @@ th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase}
   <div class="tabs">
     <button class="tab on" data-t="orders" onclick="tab('orders')">Orders</button>
     <button class="tab" data-t="users" onclick="tab('users')">Users</button>
-    <button class="tab" data-t="settings" onclick="tab('settings')">Settings · KS</button>
+    <button class="tab" data-t="settings" onclick="tab('settings')">Bakong · Settings</button>
   </div>
 
   <div id="t-orders" class="card">
@@ -135,34 +135,79 @@ th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase}
 
   <div id="t-settings" class="card hidden">
     <h3>Settings</h3>
+
     <div class="ks-box">
-      <h4>Khmer System (Auto Pay)</h4>
-      <div class="field"><label>Profile Key / Secret Key *</label><input id="s_KHMER_PROFILE_KEY" placeholder="sk_live_..."></div>
-      <div class="field"><label>Secret Key (បើខុសពី Profile)</label><input id="s_KHMER_SECRET_KEY" placeholder="optional"></div>
-      <div class="field"><label>Machine ID</label><input id="s_KHMER_MACHINE_ID" placeholder="optional"></div>
-      <div class="field"><label>Merchant Name</label><input id="s_KHMER_MERCHANT_NAME" placeholder="Gold Fx"></div>
-      <div class="field"><label>Bakong ID (optional)</label><input id="s_BAKONG_ID" placeholder="name@bank"></div>
+      <h4>🏦 Bakong API (NBC Official)</h4>
+      <p style="font-size:11px;color:var(--muted);margin:0 0 12px;line-height:1.5">
+        ប្រើ <b style="color:var(--cyan)">api-bakong.nbc.gov.kh</b> ·
+        ចុះឈ្មោះ token នៅ
+        <a href="https://api-bakong.nbc.gov.kh/register" target="_blank" rel="noopener" style="color:var(--cyan)">api-bakong.nbc.gov.kh/register</a>
+        · ស្កេន QR → បង់ → <b style="color:var(--green)">Pro activate auto</b>
+      </p>
+      <div class="field">
+        <label>Bakong Developer Token * <span style="color:var(--gold)">(JWT · ចាំបាច់)</span></label>
+        <input id="s_BAKONG_TOKEN" type="password" placeholder="eyJhbGciOiJIUzI1NiIs..." autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Bakong ID * <span style="color:var(--gold)">(ឧ. name@aba / name@acleda)</span></label>
+        <input id="s_BAKONG_ID" placeholder="yourname@aba">
+      </div>
+      <div class="field">
+        <label>Merchant Name (បង្ហាញលើ QR)</label>
+        <input id="s_KHMER_MERCHANT_NAME" placeholder="Gold Fx">
+      </div>
+      <div class="field">
+        <label>Merchant City</label>
+        <input id="s_BAKONG_CITY" placeholder="Phnom Penh">
+      </div>
+      <div class="field">
+        <label>Currency</label>
+        <select id="s_BAKONG_CURRENCY">
+          <option value="USD">USD</option>
+          <option value="KHR">KHR</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Pro Price (USD)</label>
+        <input id="s_PRO_PRICE" type="number" step="0.01" placeholder="9.99">
+      </div>
+      <div class="field">
+        <label>Shop Name</label>
+        <input id="s_SHOP_NAME" placeholder="Gold Fx">
+      </div>
+      <!-- legacy hidden so old keys don't break load -->
+      <input type="hidden" id="s_KHMER_PROFILE_KEY" value="">
+      <input type="hidden" id="s_KHMER_SECRET_KEY" value="">
+      <input type="hidden" id="s_KHMER_MACHINE_ID" value="">
+      <button class="btn btn-green" type="button" onclick="testBakong()" style="margin-top:4px">សាកល្បង Bakong QR ($0.01)</button>
+      <p id="bakongTestStatus" style="font-size:11px;color:var(--muted);margin:8px 0 0;line-height:1.4"></p>
+      <div id="bakongTestQr" class="hidden" style="margin-top:10px;text-align:center;background:#fff;border-radius:12px;padding:12px">
+        <img id="bakongTestImg" alt="test QR" style="width:160px;height:160px">
+      </div>
     </div>
+
     <div class="ks-box">
       <h4>Telegram Signal Channel</h4>
       <div class="field"><label>Bot Token (@BotFather)</label><input id="s_TG_BOT_TOKEN" type="password" placeholder="123456:ABC..." autocomplete="off"></div>
-      <div class="field"><label>Channel ID</label><input id="s_SIGNAL_CHANNEL_ID" placeholder="@channel_username ឬ -100xxxxxxxxxx"></div>
-      <div class="field"><label>Timeframes</label><input id="s_SIGNAL_TIMEFRAMES" placeholder="15m  (ឧ. 5m,15m,1h)"></div>
+      <div class="field"><label>Channel ID</label><input id="s_SIGNAL_CHANNEL_ID" placeholder="@channel ឬ -100xxxxxxxxxx"></div>
+      <div class="field"><label>Timeframes</label><input id="s_SIGNAL_TIMEFRAMES" placeholder="5m,15m,1h"></div>
       <div class="field"><label>Status</label><select id="s_SIGNAL_ENABLED"><option value="1">ON · ផ្ញើ signal</option><option value="0">OFF</option></select></div>
       <p id="sigStatus" style="font-size:11px;color:var(--muted);margin:0 0 10px"></p>
       <button class="btn btn-green" type="button" onclick="testSignal()">ផ្ញើ test ទៅ channel</button>
     </div>
+
     <div class="ks-box">
-      <h4>Indicator Code</h4>
-      <div class="field"><label>កូដ Indicator (Pine Script ឬអក្សរផ្សេង) · ទទេ = លាក់ផ្ទាំង Code</label><textarea id="s_INDICATOR_CODE" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Paste indicator code here..."></textarea></div>
-      <div class="field"><label>អ្នកអាចមើលបាន</label><select id="s_INDICATOR_ACCESS"><option value="all">អ្នកប្រើទាំងអស់</option><option value="pro">Pro តែប៉ុណ្ណោះ</option></select></div>
+      <h4>ទំនាក់ទំនង · ទូទៅ</h4>
+      <div class="field"><label>Telegram Community</label><input id="s_TELEGRAM" placeholder="@goldfx ឬ https://t.me/..."></div>
+      <div class="field"><label>Telegram Bot</label><input id="s_TELEGRAM_BOT" placeholder="@bot ឬ https://t.me/..."></div>
+      <div class="field"><label>Admin Password</label><input id="s_ADMIN_PASSWORD" type="password" placeholder="ទុកទទេ = មិនផ្លាស់ប្តូរ"></div>
     </div>
-    <div class="field"><label>Pro Price (USD)</label><input id="s_PRO_PRICE" type="number" step="0.01"></div>
-    <div class="field"><label>Shop Name</label><input id="s_SHOP_NAME"></div>
-    <div class="field"><label>Telegram</label><input id="s_TELEGRAM"></div>
-    <div class="field"><label>Telegram Bot</label><input id="s_TELEGRAM_BOT"></div>
-    <div class="field"><label>Admin Password</label><input id="s_ADMIN_PASSWORD" type="password" placeholder="leave blank = no change"></div>
-    <button class="btn btn-gold" type="button" onclick="saveSettings()">រក្សាទុក</button>
+
+    <!-- hidden: keep IDs so save/load still works if server returns them -->
+    <input type="hidden" id="s_INDICATOR_CODE" value="">
+    <input type="hidden" id="s_INDICATOR_ACCESS" value="all">
+
+    <button class="btn btn-gold" type="button" onclick="saveSettings()">រក្សាទុក Bakong · Settings</button>
   </div>
 </div>
 <div class="toast hidden" id="toast"></div>
@@ -237,7 +282,7 @@ async function load(){
     </tr>`).join('') || `<tr><td colspan="5" style="color:var(--muted)">No users</td></tr>`;
 
   const set=r.settings||{};
-  ['KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','KHMER_MERCHANT_NAME','BAKONG_ID','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','INDICATOR_CODE','INDICATOR_ACCESS'].forEach(k=>{
+  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','INDICATOR_CODE','INDICATOR_ACCESS','KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID'].forEach(k=>{
     const el=$('#s_'+k); if(el) el.value = set[k]??(k==='SIGNAL_ENABLED'?'1':(k==='INDICATOR_ACCESS'?'all':''));
   });
   $('#s_ADMIN_PASSWORD').value = '';
@@ -254,16 +299,39 @@ async function confirmOrder(id){
   toast(r.message||(r.ok?'OK':r.error), !r.ok);
   load();
 }
+async function testBakong(){
+  const st=$('#bakongTestStatus');
+  const box=$('#bakongTestQr');
+  if(st) st.textContent='កំពុងសាកល្បង…';
+  if(box) box.classList.add('hidden');
+  // save keys first so server has latest
+  const body={};
+  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','SHOP_NAME'].forEach(k=>{
+    const el=$('#s_'+k); if(el) body[k]=el.value;
+  });
+  await api('admin/settings',{method:'PUT',body:JSON.stringify(body)});
+  const r=await api('admin/bakong/test',{method:'POST',body:'{}'});
+  if(r.ok){
+    if(st) st.innerHTML='<span style="color:var(--green)">✓ '+esc(r.message||'OK')+'</span>'+(r.bakong_id?' · '+esc(r.bakong_id):'');
+    if(r.qr_image_url && box){
+      $('#bakongTestImg').src=r.qr_image_url;
+      box.classList.remove('hidden');
+    }
+    toast('Bakong QR OK ✓');
+  } else {
+    if(st) st.innerHTML='<span style="color:var(--red)">✗ '+esc(r.error||'Fail')+'</span>';
+    toast(r.error||'Bakong test fail', true);
+  }
+}
 async function saveSettings(){
   const body={};
-  ['KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','KHMER_MERCHANT_NAME','BAKONG_ID','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','INDICATOR_CODE','INDICATOR_ACCESS','ADMIN_PASSWORD'].forEach(k=>{
+  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','INDICATOR_CODE','INDICATOR_ACCESS','ADMIN_PASSWORD'].forEach(k=>{
     const el=$('#s_'+k);
     if(!el) return;
     if(k==='ADMIN_PASSWORD' && !el.value) return;
     body[k]=el.value;
   });
   // mirror profile into secret if secret empty
-  if(body.KHMER_PROFILE_KEY && !body.KHMER_SECRET_KEY) body.KHMER_SECRET_KEY = body.KHMER_PROFILE_KEY;
   const r = await api('admin/settings',{method:'PUT',body:JSON.stringify(body)});
   toast(r.ok?'រក្សាទុកហើយ':(r.error||'Fail'), !r.ok);
   load();
