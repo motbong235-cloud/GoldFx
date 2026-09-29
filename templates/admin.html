@@ -142,6 +142,15 @@ th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase}
       <div class="field"><label>Merchant Name</label><input id="s_KHMER_MERCHANT_NAME" placeholder="Gold Fx"></div>
       <div class="field"><label>Bakong ID (optional)</label><input id="s_BAKONG_ID" placeholder="name@bank"></div>
     </div>
+    <div class="ks-box">
+      <h4>Telegram Signal Channel</h4>
+      <div class="field"><label>Bot Token (@BotFather)</label><input id="s_TG_BOT_TOKEN" type="password" placeholder="123456:ABC..." autocomplete="off"></div>
+      <div class="field"><label>Channel ID</label><input id="s_SIGNAL_CHANNEL_ID" placeholder="@channel_username ឬ -100xxxxxxxxxx"></div>
+      <div class="field"><label>Timeframes</label><input id="s_SIGNAL_TIMEFRAMES" placeholder="15m  (ឧ. 5m,15m,1h)"></div>
+      <div class="field"><label>Status</label><select id="s_SIGNAL_ENABLED"><option value="1">ON · ផ្ញើ signal</option><option value="0">OFF</option></select></div>
+      <p id="sigStatus" style="font-size:11px;color:var(--muted);margin:0 0 10px"></p>
+      <button class="btn btn-green" type="button" onclick="testSignal()">ផ្ញើ test ទៅ channel</button>
+    </div>
     <div class="field"><label>Pro Price (USD)</label><input id="s_PRO_PRICE" type="number" step="0.01"></div>
     <div class="field"><label>Shop Name</label><input id="s_SHOP_NAME"></div>
     <div class="field"><label>Telegram</label><input id="s_TELEGRAM"></div>
@@ -222,10 +231,16 @@ async function load(){
     </tr>`).join('') || `<tr><td colspan="5" style="color:var(--muted)">No users</td></tr>`;
 
   const set=r.settings||{};
-  ['KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','KHMER_MERCHANT_NAME','BAKONG_ID','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT'].forEach(k=>{
-    const el=$('#s_'+k); if(el) el.value = set[k]??'';
+  ['KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','KHMER_MERCHANT_NAME','BAKONG_ID','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED'].forEach(k=>{
+    const el=$('#s_'+k); if(el) el.value = set[k]??(k==='SIGNAL_ENABLED'?'1':'');
   });
   $('#s_ADMIN_PASSWORD').value = '';
+  const sg=r.signal||{};
+  $('#sigStatus').textContent = 'Engine: '+(sg.running?'running':'stopped')+' · sent '+(sg.sent_count||0)+(sg.last_sent?' · last: '+sg.last_sent:'')+(sg.last_error?' · ⚠ '+sg.last_error:'');
+}
+async function testSignal(){
+  const r = await api('admin/signal/test',{method:'POST',body:'{}'});
+  toast(r.ok?'ផ្ញើ test ជោគជ័យ ✅':(r.error||'Fail'), !r.ok);
 }
 
 async function confirmOrder(id){
@@ -235,7 +250,7 @@ async function confirmOrder(id){
 }
 async function saveSettings(){
   const body={};
-  ['KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','KHMER_MERCHANT_NAME','BAKONG_ID','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','ADMIN_PASSWORD'].forEach(k=>{
+  ['KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','KHMER_MERCHANT_NAME','BAKONG_ID','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','ADMIN_PASSWORD'].forEach(k=>{
     const el=$('#s_'+k);
     if(!el) return;
     if(k==='ADMIN_PASSWORD' && !el.value) return;

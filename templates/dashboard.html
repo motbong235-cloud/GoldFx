@@ -82,7 +82,7 @@ a{color:var(--cyan);text-decoration:none}
 .drive-bar .buy{background:var(--blue);height:100%;transition:width .4s}
 .drive-bar .sell{background:var(--red);height:100%;transition:width .4s}
 #tv_chart{width:100%;height:min(52vh,480px);min-height:320px;background:#0b1220}
-@media(min-width:960px){ #tv_chart{height:calc(100vh - 200px);min-height:480px} }
+@media(min-width:960px){#tv_chart{height:calc(100vh - 200px);min-height:480px}}
 
 .side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden}
 .side-tabs{display:flex;border-bottom:1px solid var(--line);flex-shrink:0}
@@ -262,7 +262,7 @@ pre.pine{background:var(--card);border:1px solid var(--line);border-radius:12px;
 <div class="toast hidden" id="toast"></div>
 
 <script>
-const K = { ALERTS: 'goldfx_alerts_v2' };
+const K = { ALERTS: 'goldfx_alerts_v3' };
 let PRO_PRICE = 9.99;
 let TG_FAMILY = 'https://t.me/';
 let TG_BOT = 'https://t.me/';
@@ -321,7 +321,6 @@ function enterApp(){
   const badge = document.getElementById('proBadge');
   if(badge) badge.classList.toggle('hidden', !s.pro);
   loadChart();
-  renderLevels(BASE);
   renderAlerts();
   startLive();
 }
@@ -372,6 +371,7 @@ document.getElementById('pairSwitch').addEventListener('click', e => {
   b.classList.add('on');
   symbol = b.dataset.sym;
   loadChart();
+  startLive();
 });
 document.getElementById('tfBar').addEventListener('click', e => {
   const b = e.target.closest('button[data-tf]');
@@ -380,6 +380,7 @@ document.getElementById('tfBar').addEventListener('click', e => {
   b.classList.add('on');
   interval = b.dataset.tf;
   loadChart();
+  startLive();
 });
 document.querySelectorAll('.side-tabs button').forEach(b => {
   b.onclick = () => {
@@ -391,54 +392,169 @@ document.querySelectorAll('.side-tabs button').forEach(b => {
   };
 });
 
-/* ========== Levels + live sim ========== */
-let BASE = 2650.00; // realistic-ish gold anchor; jittered live
-function buildLevels(price){
-  return [
-    {tag:'UP3', price: price+57, cls:'up'},
-    {tag:'UP2', price: price+35, cls:'up'},
-    {tag:'UP1', price: price+12, cls:'up'},
-    {tag:'LIVE', price: price, cls:'live'},
-    {tag:'MEAN', price: price-1.2, cls:'mid'},
-    {tag:'OPEN', price: price-8.5, cls:'mid'},
-    {tag:'DN1', price: price-28, cls:'dn'},
-    {tag:'DN2', price: price-48, cls:'dn'},
-    {tag:'DN3', price: price-72, cls:'dn'},
-  ];
-}
+/* ========== Real market feed + levels + signals ========== */
+// Real prices from Binance public API (CORS enabled). XAU uses PAXG (gold-backed token, tracks spot gold).
+const FEED = { 'OANDA:XAUUSD': 'PAXGUSDT', 'BINANCE:BTCUSDT': 'BTCUSDT' };
+const TF_MAP = { '5':'5m', '15':'15m', '60':'1h', '240':'4h', 'D':'1d' };
+const BIN = 'https://api.binance.com/api/v3/';
+const LEN = 50, RNG = 1.0;              // same params as the Pine indicator
+const COOLDOWN = 5 * 60 * 1000;         // per-signal cooldown (5 min)
+const FREE_TAGS = ['UP1', 'DN1'];       // free plan gets range breaks UP1/DN1; Pro gets all levels
+
+let BASE = 0;                           // last live price
+let LEVELS = null;                      // {up1..dn3, mean, open}
+let prevPrice = null;
+let lastFire = {};
+let liveTimer = null, levelTimer = null, feedSeq = 0;
+
 function fmt(n){ return Number(n).toFixed(2); }
+function feedSymbol(){ return FEED[symbol] || 'PAXGUSDT'; }
+
+async function bget(path){
+  const r = await fetch(BIN + path);
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+function setFeed(ok, sub){
+  const st = document.getElementById('feedStatus');
+  if(!st) return;
+  st.textContent = ok ? '● LIVE' : '● OFFLINE';
+  st.style.color = ok ? 'var(--green)' : 'var(--red)';
+  if(sub) document.getElementById('feedSub').textContent = sub;
+}
+
+function buildLevels(price){
+  const L = LEVELS;
+  if(!L) return [];
+  return [
+    {tag:'UP3', price:L.up3, cls:'up'},
+    {tag:'UP2', price:L.up2, cls:'up'},
+    {tag:'UP1', price:L.up1, cls:'up'},
+    {tag:'LIVE', price:price, cls:'live'},
+    {tag:'MEAN', price:L.mean, cls:'mid'},
+    {tag:'OPEN', price:L.open, cls:'mid'},
+    {tag:'DN1', price:L.dn1, cls:'dn'},
+    {tag:'DN2', price:L.dn2, cls:'dn'},
+    {tag:'DN3', price:L.dn3, cls:'dn'},
+  ].sort((a,b) => b.price - a.price);
+}
+
 function renderLevels(price){
-  document.getElementById('levelsList').innerHTML = buildLevels(price).map(l =>
+  const el = document.getElementById('levelsList');
+  if(!LEVELS || !price){ el.innerHTML = '<p class="hint">កំពុងទាញទិន្នន័យពិត…</p>'; return; }
+  el.innerHTML = buildLevels(price).map(l =>
     `<div class="lvl ${l.cls}"><span class="tag">${l.tag}</span><span>${fmt(l.price)}</span></div>`
   ).join('');
   document.getElementById('livePrice').textContent = fmt(price);
 }
-function updateDrive(){
-  const buy = 28 + Math.floor(Math.random()*45);
-  document.getElementById('buyBar').style.width = buy+'%';
-  document.getElementById('sellBar').style.width = (100-buy)+'%';
-  document.getElementById('buyPct').textContent = 'Buyer '+buy+'%';
-  document.getElementById('sellPct').textContent = 'Seller '+(100-buy)+'%';
+
+// Same maths as the Pine script: SMA(close,50), highest/lowest(50), 0.25/0.5/0.75 of range
+function computeLevels(kl, dayOpen){
+  const w = kl.slice(-LEN);
+  const closes = w.map(k => +k[4]);
+  const mean = closes.reduce((a,b) => a+b, 0) / closes.length;
+  const hi = Math.max(...w.map(k => +k[2]));
+  const lo = Math.min(...w.map(k => +k[3]));
+  const r = (hi - lo) * RNG;
+  return {
+    mean, open: dayOpen,
+    up1: mean + r*.25, up2: mean + r*.50, up3: mean + r*.75,
+    dn1: mean - r*.25, dn2: mean - r*.50, dn3: mean - r*.75,
+  };
+}
+
+// Market drive = real taker-buy share of volume over the last 20 candles
+function renderDrive(kl){
+  const w = kl.slice(-20);
+  const vol = w.reduce((a,k) => a + (+k[5]), 0);
+  const tb = w.reduce((a,k) => a + (+k[9]), 0);
+  if(!vol) return;
+  const buy = Math.round(tb / vol * 100);
+  document.getElementById('buyBar').style.width = buy + '%';
+  document.getElementById('sellBar').style.width = (100-buy) + '%';
+  document.getElementById('buyPct').textContent = 'Buyer ' + buy + '%';
+  document.getElementById('sellPct').textContent = 'Seller ' + (100-buy) + '%';
   const lead = buy >= 50 ? buy : 100-buy;
-  document.getElementById('driveText').textContent = (buy>=50?'Buyers lead':'Sellers lead')+' · '+lead+'%';
+  document.getElementById('driveText').textContent = (buy>=50 ? 'Buyers lead' : 'Sellers lead') + ' · ' + lead + '%';
 }
-let liveTimer = null;
+
+async function refreshLevels(seq){
+  const sym = feedSymbol();
+  const tf = TF_MAP[interval] || '15m';
+  try{
+    const [kl, day] = await Promise.all([
+      bget(`klines?symbol=${sym}&interval=${tf}&limit=${LEN+5}`),
+      bget(`klines?symbol=${sym}&interval=1d&limit=1`),
+    ]);
+    if(seq !== feedSeq) return;              // pair/timeframe changed meanwhile
+    LEVELS = computeLevels(kl, +day[0][1]);
+    renderDrive(kl);
+    if(BASE) renderLevels(BASE);
+    setFeed(true, sym + ' · ' + tf);
+  }catch(e){
+    if(seq === feedSeq) setFeed(false, 'Feed error · retrying');
+  }
+}
+
+// Real signal detection: fire when live price actually crosses a level
+function detectSignals(prev, now){
+  if(prev == null || !LEVELS) return;
+  const u = currentUser() || {};
+  const map = {
+    UP1:LEVELS.up1, UP2:LEVELS.up2, UP3:LEVELS.up3,
+    DN1:LEVELS.dn1, DN2:LEVELS.dn2, DN3:LEVELS.dn3, MEAN:LEVELS.mean,
+  };
+  const tf = TF_MAP[interval] || '15m';
+  const name = (symbol.split(':')[1] || symbol);
+  for(const tag in map){
+    if(!u.pro && !FREE_TAGS.includes(tag)) continue;
+    const lv = map[tag];
+    const up = prev < lv && now >= lv;
+    const dn = prev > lv && now <= lv;
+    if(!up && !dn) continue;
+    const key = tag + (up ? 'u' : 'd');
+    if(Date.now() - (lastFire[key]||0) < COOLDOWN) continue;
+    lastFire[key] = Date.now();
+    pushAlert(`${up ? '▲ Break' : '▼ Break'} ${tag} @ ${fmt(lv)}`, `${name} · ${tf} · price ${fmt(now)}`);
+  }
+}
+
+async function tickPrice(seq){
+  try{
+    const d = await bget('ticker/price?symbol=' + feedSymbol());
+    if(seq !== feedSeq) return;
+    const p = +d.price;
+    if(!p) return;
+    detectSignals(prevPrice, p);
+    prevPrice = p;
+    BASE = p;
+    renderLevels(p);
+    setFeed(true);
+  }catch(e){
+    if(seq === feedSeq) setFeed(false, 'Feed error · retrying');
+  }
+}
+
 function startLive(){
-  if(liveTimer) clearInterval(liveTimer);
-  updateDrive();
-  liveTimer = setInterval(() => {
-    BASE = BASE + (Math.random()-0.48)*1.2;
-    renderLevels(BASE);
-    if(Math.random() > 0.55) updateDrive();
-  }, 4000);
+  clearInterval(liveTimer); clearInterval(levelTimer);
+  feedSeq++;
+  const seq = feedSeq;
+  BASE = 0; LEVELS = null; prevPrice = null; lastFire = {};
+  renderLevels(0);
+  refreshLevels(seq).then(() => tickPrice(seq));
+  liveTimer  = setInterval(() => tickPrice(seq), 3000);
+  levelTimer = setInterval(() => refreshLevels(seq), 30000);
 }
+// Pause when tab hidden, resume when visible
+document.addEventListener('visibilitychange', () => { if(!document.hidden && CURRENT) startLive(); });
 
 /* ========== Alerts ========== */
 function renderAlerts(){
   const list = loadAlerts();
   const el = document.getElementById('alertsList');
   if(!list.length){
-    el.innerHTML = '<p class="hint">មិនទាន់មាន alert · Enable browser alerts រង់ចាំ signal</p>';
+    el.innerHTML = '<p class="hint">មិនទាន់មាន alert · Enable browser alerts រង់ចាំ signal ពិត</p>';
   } else {
     el.innerHTML = list.map(a => `
       <div class="alert-item ${a.new?'new':''}">
@@ -472,32 +588,8 @@ function markAlertsRead(){
   saveAlerts(loadAlerts().map(a => Object.assign({}, a, {new:false})));
   renderAlerts();
 }
-function seedAlerts(){
-  if(loadAlerts().length) return;
-  saveAlerts([
-    {t:'Buy Node Zone confirmed', s:'15M / NODE ZONE', ts:Date.now()-90000, new:true},
-    {t:'Sell Diamond invalidated', s:'5M / DIAMOND', ts:Date.now()-180000, new:false},
-  ]);
-}
-let alertTimer = null;
-function startAlertSim(){
-  if(alertTimer) clearInterval(alertTimer);
-  const samples = [
-    ['Buy Diamond invalidated','5M / DIAMOND'],
-    ['Sell Node Zone confirmed','15M / NODE'],
-    ['Break UP1 watch','LIVE / RANGE'],
-    ['Buy pressure rising','Market Drive'],
-    ['Sell Diamond invalidated','1H / DIAMOND'],
-  ];
-  alertTimer = setInterval(() => {
-    const u = currentUser();
-    if(!u) return;
-    if(u.pro || Math.random() > 0.65){
-      const s = samples[Math.floor(Math.random()*samples.length)];
-      pushAlert(s[0], s[1]);
-    }
-  }, 50000);
-}
+function seedAlerts(){ /* removed: no more fake seeded alerts */ }
+function startAlertSim(){ /* removed: signals now come from real price crosses */ }
 
 /* ========== Pine ========== */
 const PINE = `//@version=5
@@ -685,11 +777,23 @@ seedAlerts();
 document.getElementById('loginPass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 document.getElementById('regPass').addEventListener('keydown', e => { if(e.key==='Enter') doRegister(); });
 
+function tgUrl(v){
+  v = String(v||'').trim();
+  if(!v) return 'https://t.me/';
+  if(/^https?:\/\//i.test(v)) return v;
+  return 'https://t.me/' + v.replace(/^@/, '').replace(/^t\.me\//, '');
+}
+api('config').then(c => {
+  if(!c || !c.ok) return;
+  if(c.pro_price) PRO_PRICE = Number(c.pro_price);
+  TG_FAMILY = tgUrl(c.telegram);
+  TG_BOT = tgUrl(c.telegram_bot);
+}).catch(()=>{});
+
 api('me').then(r => {
   if(!r.user){ location.href = '/login'; return; }
   CURRENT = r.user;
   enterApp();
-  startAlertSim();
 });
 </script>
 <script>
