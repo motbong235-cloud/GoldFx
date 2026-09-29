@@ -34,11 +34,16 @@ STATE = {"running": False, "last_sent": "", "last_error": "", "sent_count": 0}
 _lock_fh = None
 
 
-def market(path: str, timeout: int = 6):
-    """GET a Binance market-data path (e.g. 'klines?symbol=..') trying mirrors in turn."""
+def market(path: str, timeout: int = 6, budget: float = 0):
+    """GET a Binance market-data path (e.g. 'klines?symbol=..') trying mirrors in turn.
+    budget > 0 caps the TOTAL time across all mirrors (used by the web proxy so a
+    dead upstream can't tie up a web worker for 4 x timeout seconds)."""
     global _good
     last = None
+    t0 = time.time()
     for n in range(len(BASES)):
+        if budget and n and time.time() - t0 >= budget:
+            break
         i = (_good + n) % len(BASES)
         try:
             req = urllib.request.Request(BASES[i] + path, headers={"User-Agent": "goldfx-signal"})
