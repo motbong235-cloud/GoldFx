@@ -217,6 +217,7 @@ def me():
 
 
 _MKT_CACHE: dict = {}
+_MKT_FAIL_UNTIL: dict = {}
 _MKT_INTERVALS = {"1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "1d"}
 
 
@@ -243,9 +244,15 @@ def market_proxy(p):
     hit = _MKT_CACHE.get(path)
     if hit and time.time() - hit[0] < ttl:
         return jsonify(hit[1])
+    # upstream recently failed -> answer fast instead of blocking a worker again
+    if time.time() < _MKT_FAIL_UNTIL.get(path, 0):
+        if hit:
+            return jsonify(hit[1])
+        return jsonify({"ok": False, "error": "upstream unavailable"}), 502
     try:
-        data = signal_engine.market(path)
+        data = signal_engine.market(path, timeout=3, budget=5)
     except Exception as e:
+        _MKT_FAIL_UNTIL[path] = time.time() + 5
         if hit:                      # serve stale rather than fail
             return jsonify(hit[1])
         return jsonify({"ok": False, "error": str(e)[:200]}), 502
