@@ -393,7 +393,7 @@ def pro_buy():
             "khmer_system": ks_data,
             "ks_error": order.get("ks_error"),
             "bakong": {
-                "enabled": bool(secret and pay.get("PAYMENT_QR")),
+                "enabled": bool(pay.get("PAYMENT_QR")),
                 "account_id": (s.get("BAKONG_ID") or ""),
                 "merchant": pay["MERCHANT"],
             },
