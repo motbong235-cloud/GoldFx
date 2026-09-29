@@ -255,17 +255,8 @@ def market_proxy(p):
 
 @app.route("/api/indicator")
 def indicator():
-    """Indicator code set by admin. INDICATOR_ACCESS = 'pro' -> only Pro users get the code."""
-    st = db_read().get("settings") or {}
-    code = str(st.get("INDICATOR_CODE") or "")
-    if not code.strip():
-        return jsonify({"ok": True, "code": "", "locked": False})
-    if str(st.get("INDICATOR_ACCESS") or "all") == "pro":
-        email = session.get("user_email")
-        u = ((db_read().get("users") or {}).get(email)) if email else None
-        if not (u and u.get("pro")):
-            return jsonify({"ok": True, "code": "", "locked": True})
-    return jsonify({"ok": True, "code": code, "locked": False})
+    """Disabled: indicator code is no longer served to anyone (including Pro)."""
+    return jsonify({"ok": True, "code": "", "locked": False})
 
 
 @app.route("/api/config")
