@@ -21,6 +21,7 @@ from flask import (
 )
 
 import khmer_system
+import signal_engine
 
 BASE = Path(__file__).resolve().parent
 
@@ -211,6 +212,20 @@ def me():
         session.pop("user_email", None)
         return jsonify({"ok": True, "user": None})
     return jsonify({"ok": True, "user": public_user(u)})
+
+
+@app.route("/api/config")
+def public_config():
+    st = db_read().get("settings") or {}
+    return jsonify(
+        {
+            "ok": True,
+            "site_name": st.get("SITE_NAME") or "Gold Fx",
+            "pro_price": st.get("PRO_PRICE", 9.99),
+            "telegram": st.get("TELEGRAM") or "",
+            "telegram_bot": st.get("TELEGRAM_BOT") or "",
+        }
+    )
 
 
 def public_user(u: dict) -> dict:
@@ -507,6 +522,7 @@ def admin_data():
         {
             "ok": True,
             "settings": d.get("settings") or {},
+            "signal": dict(signal_engine.STATE),
             "orders": (d.get("orders") or [])[:100],
             "users": users,
             "stats": {
@@ -556,6 +572,11 @@ def admin_settings():
         "KHMER_MACHINE_ID",
         "KHMER_MERCHANT_NAME",
         "BAKONG_ID",
+        "TG_BOT_TOKEN",
+        "SIGNAL_CHANNEL_ID",
+        "SIGNAL_ENABLED",
+        "SIGNAL_TIMEFRAMES",
+        "SIGNAL_SYMBOLS",
     ]
     for k in keys:
         if k in body:
@@ -568,6 +589,18 @@ def admin_settings():
             s[k] = val
     db_write(d)
     return jsonify({"ok": True, "settings": s})
+
+
+@app.route("/api/admin/signal/test", methods=["POST"])
+@admin_required
+def admin_signal_test():
+    st = db_read().get("settings") or {}
+    tok = str(st.get("TG_BOT_TOKEN") or "").strip()
+    ch = str(st.get("SIGNAL_CHANNEL_ID") or "").strip()
+    if not tok or not ch:
+        return jsonify({"ok": False, "error": "ដាក់ Bot Token និង Channel ID ជាមុន (រក្សាទុកសិន)"}), 400
+    ok, err = signal_engine.send(tok, ch, "✅ <b>Gold Fx</b> · test signal — channel connected")
+    return jsonify({"ok": ok, "error": err})
 
 
 @app.get("/health")
@@ -590,6 +623,11 @@ def err_500(e):
         500,
     )
 
+
+
+signal_engine.start_background(
+    lambda: db_read().get("settings") or {}, DATA_DIR / "signal.lock"
+)
 
 
 if __name__ == "__main__":
