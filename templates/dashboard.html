@@ -219,7 +219,6 @@ pre.pine{background:var(--card);border:1px solid var(--line);border-radius:12px;
     <div class="side-tabs">
       <button type="button" class="on" data-tab="levels">Levels</button>
       <button type="button" data-tab="alerts">Alerts</button>
-      <button type="button" data-tab="code">Code</button>
     </div>
     <div class="side-body" id="tab-levels">
       <div class="levels" id="levelsList"></div>
@@ -228,11 +227,6 @@ pre.pine{background:var(--card);border:1px solid var(--line);border-radius:12px;
     <div class="side-body hidden" id="tab-alerts">
       <button class="btn-ghost" type="button" style="margin-bottom:10px" onclick="enablePush()">🔔 Enable browser alerts</button>
       <div id="alertsList"></div>
-    </div>
-    <div class="side-body hidden" id="tab-code">
-      <p class="hint" style="margin-top:0;margin-bottom:10px">Pine Script — paste into TradingView Pine Editor</p>
-      <pre class="pine" id="pineCode"></pre>
-      <button class="btn-ghost" type="button" style="margin-top:10px" onclick="copyPine()">Copy indicator</button>
     </div>
   </aside>
 </div>
@@ -347,7 +341,7 @@ function loadChart(){
       hide_top_toolbar: true,
       hide_legend: true,
       allow_symbol_change: true,
-      withdateranges: true,
+      withdateranges: false,
       details: false,
       hotlist: false,
       calendar: false,
@@ -388,7 +382,7 @@ document.querySelectorAll('.side-tabs button').forEach(b => {
   b.onclick = () => {
     document.querySelectorAll('.side-tabs button').forEach(x => x.classList.remove('on'));
     b.classList.add('on');
-    ['levels','alerts','code'].forEach(id => {
+    ['levels','alerts'].forEach(id => {
       document.getElementById('tab-'+id).classList.toggle('hidden', b.dataset.tab !== id);
     });
   };
@@ -398,7 +392,9 @@ document.querySelectorAll('.side-tabs button').forEach(b => {
 // Real prices from Binance public API (CORS enabled). XAU uses PAXG (gold-backed token, tracks spot gold).
 const FEED = { 'OANDA:XAUUSD': 'PAXGUSDT', 'BINANCE:BTCUSDT': 'BTCUSDT' };
 const TF_MAP = { '5':'5m', '15':'15m', '60':'1h', '240':'4h', 'D':'1d' };
-const BIN = 'https://api.binance.com/api/v3/';
+// Try own server proxy first (fast, cached, not blocked), then public Binance mirrors.
+const BASES = ['/api/mkt/', 'https://data-api.binance.vision/api/v3/', 'https://api.binance.com/api/v3/'];
+let baseIdx = 0;
 const LEN = 50, RNG = 1.0;              // same params as the Pine indicator
 const COOLDOWN = 5 * 60 * 1000;         // per-signal cooldown (5 min)
 const FREE_TAGS = ['UP1', 'DN1'];       // free plan gets range breaks UP1/DN1; Pro gets all levels
@@ -413,9 +409,21 @@ function fmt(n){ return Number(n).toFixed(2); }
 function feedSymbol(){ return FEED[symbol] || 'PAXGUSDT'; }
 
 async function bget(path){
-  const r = await fetch(BIN + path);
-  if(!r.ok) throw new Error('HTTP ' + r.status);
-  return r.json();
+  let lastErr;
+  for(let n = 0; n < BASES.length; n++){
+    const i = (baseIdx + n) % BASES.length;
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 5000);   // never hang on a blocked host
+    try{
+      const r = await fetch(BASES[i] + path, {signal: ctl.signal, credentials: i === 0 ? 'same-origin' : 'omit'});
+      clearTimeout(t);
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      baseIdx = i;                                    // remember the working source
+      return j;
+    }catch(e){ clearTimeout(t); lastErr = e; }
+  }
+  throw lastErr;
 }
 
 function setFeed(ok, sub){
@@ -444,6 +452,7 @@ function buildLevels(price){
 
 function renderLevels(price){
   const el = document.getElementById('levelsList');
+  if(price) document.getElementById('livePrice').textContent = fmt(price);
   if(!LEVELS || !price){ el.innerHTML = '<p class="hint">កំពុងទាញទិន្នន័យពិត…</p>'; return; }
   el.innerHTML = buildLevels(price).map(l =>
     `<div class="lvl ${l.cls}"><span class="tag">${l.tag}</span><span>${fmt(l.price)}</span></div>`
@@ -495,7 +504,10 @@ async function refreshLevels(seq){
     if(BASE) renderLevels(BASE);
     setFeed(true, sym + ' · ' + tf);
   }catch(e){
-    if(seq === feedSeq) setFeed(false, 'Feed error · retrying');
+    if(seq === feedSeq){
+      setFeed(false, 'Feed error · retrying');
+      setTimeout(() => { if(seq === feedSeq && !LEVELS) refreshLevels(seq); }, 3000);
+    }
   }
 }
 
@@ -544,7 +556,8 @@ function startLive(){
   const seq = feedSeq;
   BASE = 0; LEVELS = null; prevPrice = null; lastFire = {};
   renderLevels(0);
-  refreshLevels(seq).then(() => tickPrice(seq));
+  tickPrice(seq);
+  refreshLevels(seq);
   liveTimer  = setInterval(() => tickPrice(seq), 3000);
   levelTimer = setInterval(() => refreshLevels(seq), 30000);
 }
@@ -592,35 +605,6 @@ function markAlertsRead(){
 }
 function seedAlerts(){ /* removed: no more fake seeded alerts */ }
 function startAlertSim(){ /* removed: signals now come from real price crosses */ }
-
-/* ========== Pine ========== */
-const PINE = `//@version=5
-indicator("Gold Fx Range Levels", overlay=true)
-len = input.int(50, "Mean Length")
-rng = input.float(1.0, "Range Mult")
-mean = ta.sma(close, len)
-hi = ta.highest(high, len)
-lo = ta.lowest(low, len)
-rngSize = (hi - lo) * rng
-up1 = mean + rngSize * 0.25
-up2 = mean + rngSize * 0.50
-up3 = mean + rngSize * 0.75
-dn1 = mean - rngSize * 0.25
-dn2 = mean - rngSize * 0.50
-dn3 = mean - rngSize * 0.75
-plot(up3, "UP3", color=color.new(color.green, 30))
-plot(up2, "UP2", color=color.new(color.green, 20))
-plot(up1, "UP1", color=color.green)
-plot(mean, "MEAN", color=color.aqua, linewidth=2)
-plot(dn1, "DN1", color=color.red)
-plot(dn2, "DN2", color=color.new(color.red, 20))
-plot(dn3, "DN3", color=color.new(color.red, 30))
-alertcondition(ta.crossover(close, up1), "Break UP1", "Gold Fx: crossed UP1")
-alertcondition(ta.crossunder(close, dn1), "Break DN1", "Gold Fx: crossed DN1")`;
-document.getElementById('pineCode').textContent = PINE;
-function copyPine(){
-  navigator.clipboard.writeText(PINE).then(()=>toast('Copied Pine Script')).catch(()=>toast('Copy failed', true));
-}
 
 /* ========== Pro / Modals ========== */
 let PENDING_ORDER = null;
