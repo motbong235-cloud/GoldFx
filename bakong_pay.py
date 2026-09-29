@@ -17,6 +17,7 @@ Note: Official API often requires a Cambodia IP. For global hosting,
 from __future__ import annotations
 
 import hashlib
+import time
 import io
 import json
 import secrets
@@ -61,11 +62,13 @@ def create_khqr(
     merchant_city: str = "Phnom Penh",
     bill_number: str = "",
     store_label: str = "Gold Fx",
+    expire_minutes: int = 10,
 ) -> str:
-    """Build dynamic KHQR (EMVCo / KHQR Content Guideline v1.3).
+    """Build dynamic KHQR per KHQR Content Guideline + Tag 99 timestamps.
 
-    Tag 29 Individual: sub-tag 00 = Bakong Account ID only.
-    Example: 00020101021229180014name@bank52045999...6304XXXX
+    Required structure (Individual / Tag 29):
+      00 Payload · 01 Dynamic · 29 Account · 52 MCC · 53 Currency · 54 Amount
+      58 KH · 59 Name · 60 City · [62 Additional] · 99 Timestamps · 63 CRC
     """
     bakong_id = (bakong_id or "").strip()
     merchant_name = (merchant_name or "Gold Fx").strip()[:25]
@@ -76,14 +79,14 @@ def create_khqr(
     if not bakong_id or "@" not in bakong_id:
         raise ValueError("Bakong ID ត្រូវទម្រង់ name@bank (ឧ. name@aba)")
 
-    # Official Tag 29: 00{len}{bakong_account_id}  — NOT bakong+01+id
+    # Tag 29 Individual: sub-tag 00 = Bakong Account ID only
     mai = _tlv("00", bakong_id)
 
     payload = ""
-    payload += _tlv("00", "01")          # Payload Format Indicator
-    payload += _tlv("01", "12")          # Dynamic QR
-    payload += _tlv("29", mai)           # Merchant Account Information
-    payload += _tlv("52", "5999")        # MCC
+    payload += _tlv("00", "01")
+    payload += _tlv("01", "12")  # dynamic
+    payload += _tlv("29", mai)
+    payload += _tlv("52", "5999")
     payload += _tlv("53", "840" if currency == "USD" else "116")
     if currency == "USD":
         amt_s = f"{float(amount):.2f}"
@@ -102,10 +105,16 @@ def create_khqr(
     if add:
         payload += _tlv("62", add)
 
-    # CRC-16 over payload including the "6304" tag+length
+    # Tag 99 — required for dynamic KHQR (creation + expiration, ms)
+    now_ms = int(time.time() * 1000)
+    exp_ms = now_ms + max(1, int(expire_minutes)) * 60 * 1000
+    ts = _tlv("00", str(now_ms)) + _tlv("01", str(exp_ms))
+    payload += _tlv("99", ts)
+
     payload += "6304"
     payload += _crc16(payload)
     return payload
+
 
 
 def generate_md5(qr: str) -> str:
