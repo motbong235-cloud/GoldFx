@@ -22,7 +22,7 @@ from flask import (
     session,
 )
 
-import khmer_system
+import bakong_pay
 import signal_engine
 
 BASE = Path(__file__).resolve().parent
@@ -334,44 +334,52 @@ def pro_buy():
     }
     ks_data = None
 
-    secret = (s.get("KHMER_SECRET_KEY") or s.get("KHMER_PROFILE_KEY") or "").strip()
-    if secret:
-        vkey = khmer_system.make_verify_key()
-        # use hashed email as stable telegram_user_id substitute
-        tg_id = str(abs(hash(email)) % 10_000_000_000)
+    token = (s.get("BAKONG_TOKEN") or s.get("KHMER_SECRET_KEY") or s.get("KHMER_PROFILE_KEY") or "").strip()
+    bakong_id = (s.get("BAKONG_ID") or "").strip()
+    if token and bakong_id:
+        vkey = bakong_pay.make_verify_key()
         order["ks_verify_key"] = vkey
-        order["ks_telegram_user_id"] = tg_id
+        order["bakong_md5"] = None
         try:
-            resp = khmer_system.generate(
-                secret_key=secret,
+            resp = bakong_pay.generate(
+                token=token,
+                bakong_id=bakong_id,
                 amount=price,
-                verify_key=vkey,
-                telegram_user_id=tg_id,
-                bakong_account_id=(s.get("BAKONG_ID") or None) or None,
                 merchant_name=(s.get("KHMER_MERCHANT_NAME") or s.get("SHOP_NAME") or "Gold Fx"),
-                machine_id=(s.get("KHMER_MACHINE_ID") or None) or None,
-                profile_key=(s.get("KHMER_PROFILE_KEY") or None) or None,
+                merchant_city=(s.get("BAKONG_CITY") or "Phnom Penh"),
+                bill_number=oid,
+                currency=(s.get("BAKONG_CURRENCY") or "USD"),
             )
             if resp.get("success") or resp.get("qr_image_url") or resp.get("qr"):
                 qr = resp.get("qr_image_url") or resp.get("qr") or ""
                 order["payment_qr"] = qr
+                order["bakong_md5"] = resp.get("md5")
+                order["bakong_qr_string"] = resp.get("qr_string")
                 pay["PAYMENT_QR"] = qr
                 pay["KS_DYNAMIC"] = True
                 ks_data = {
                     "qr_image_url": qr,
+                    "md5": resp.get("md5"),
                     "verify_key": vkey,
-                    "raw": {k: resp.get(k) for k in ("success", "code", "message") if k in resp},
+                    "provider": "bakong_nbc",
                 }
             else:
                 order["ks_error"] = resp.get("error") or resp.get("message") or str(resp)[:200]
         except Exception as e:
             order["ks_error"] = str(e)
     else:
-        order["ks_error"] = "Admin មិនទាន់ដាក់ Khmer System Profile Key"
+        missing = []
+        if not token:
+            missing.append("Bakong Token")
+        if not bakong_id:
+            missing.append("Bakong ID")
+        order["ks_error"] = "Admin មិនទាន់ដាក់: " + " · ".join(missing)
 
     d.setdefault("orders", []).insert(0, order)
     db_write(d)
 
+    pay["BAKONG_ID"] = (s.get("BAKONG_ID") or "")
+    pay["MERCHANT"] = (s.get("KHMER_MERCHANT_NAME") or s.get("SHOP_NAME") or "Gold Fx")
     return jsonify(
         {
             "ok": True,
@@ -384,6 +392,11 @@ def pro_buy():
             "payment": pay,
             "khmer_system": ks_data,
             "ks_error": order.get("ks_error"),
+            "bakong": {
+                "enabled": bool(secret and pay.get("PAYMENT_QR")),
+                "account_id": (s.get("BAKONG_ID") or ""),
+                "merchant": pay["MERCHANT"],
+            },
         }
     )
 
@@ -407,18 +420,17 @@ def pro_check():
         return jsonify({"ok": True, "payment_status": "completed", "order": order, "user": public_user(u) if u else None})
 
     s = d.get("settings") or {}
-    secret = (s.get("KHMER_SECRET_KEY") or s.get("KHMER_PROFILE_KEY") or "").strip()
-    vkey = order.get("ks_verify_key")
-    tg_id = order.get("ks_telegram_user_id")
+    token = (s.get("BAKONG_TOKEN") or s.get("KHMER_SECRET_KEY") or s.get("KHMER_PROFILE_KEY") or "").strip()
+    md5 = order.get("bakong_md5")
 
     payment_status = "pending"
-    if secret and vkey and tg_id:
-        resp = khmer_system.check(secret_key=secret, verify_key=vkey, telegram_user_id=str(tg_id))
+    if token and md5:
+        resp = bakong_pay.check(token=token, md5=md5)
         st = (resp.get("status") or resp.get("payment_status") or "").lower()
-        if resp.get("success") or st in ("paid", "completed", "success", "approved"):
+        if st in ("paid", "completed", "success", "approved"):
             payment_status = "completed"
             try:
-                khmer_system.confirm(secret_key=secret, verify_key=vkey, telegram_user_id=str(tg_id))
+                bakong_pay.confirm(token=token, md5=md5)
             except Exception:
                 pass
             _activate_pro(d, order)
@@ -459,16 +471,15 @@ def pro_confirm_paid():
         return jsonify({"ok": True, "order": order, "user": public_user(d["users"][email]), "message": "Pro active"})
 
     s = d.get("settings") or {}
-    secret = (s.get("KHMER_SECRET_KEY") or s.get("KHMER_PROFILE_KEY") or "").strip()
-    vkey = order.get("ks_verify_key")
-    tg_id = order.get("ks_telegram_user_id")
+    token = (s.get("BAKONG_TOKEN") or s.get("KHMER_SECRET_KEY") or s.get("KHMER_PROFILE_KEY") or "").strip()
+    md5 = order.get("bakong_md5")
 
-    if secret and vkey and tg_id:
-        resp = khmer_system.check(secret_key=secret, verify_key=vkey, telegram_user_id=str(tg_id))
+    if token and md5:
+        resp = bakong_pay.check(token=token, md5=md5)
         st = (resp.get("status") or resp.get("payment_status") or "").lower()
-        if resp.get("success") or st in ("paid", "completed", "success", "approved"):
+        if st in ("paid", "completed", "success", "approved"):
             try:
-                khmer_system.confirm(secret_key=secret, verify_key=vkey, telegram_user_id=str(tg_id))
+                bakong_pay.confirm(token=token, md5=md5)
             except Exception:
                 pass
             _activate_pro(d, order)
@@ -624,6 +635,9 @@ def admin_settings():
         "KHMER_MACHINE_ID",
         "KHMER_MERCHANT_NAME",
         "BAKONG_ID",
+        "BAKONG_TOKEN",
+        "BAKONG_CITY",
+        "BAKONG_CURRENCY",
         "TG_BOT_TOKEN",
         "SIGNAL_CHANNEL_ID",
         "SIGNAL_ENABLED",
@@ -661,6 +675,43 @@ def admin_signal_test():
     return jsonify({"ok": ok, "error": err})
 
 
+@app.route("/api/admin/bakong/test", methods=["POST"])
+@admin_required
+def admin_bakong_test():
+    """Generate a $0.01 test KHQR via official Bakong NBC API."""
+    st = db_read().get("settings") or {}
+    token = (st.get("BAKONG_TOKEN") or st.get("KHMER_SECRET_KEY") or st.get("KHMER_PROFILE_KEY") or "").strip()
+    bakong_id = (st.get("BAKONG_ID") or "").strip()
+    if not token or not bakong_id:
+        return jsonify({"ok": False, "error": "ដាក់ Bakong Token + Bakong ID ជាមុន (រក្សាទុកសិន)"}), 400
+    try:
+        resp = bakong_pay.generate(
+            token=token,
+            bakong_id=bakong_id,
+            amount=0.01,
+            merchant_name=(st.get("KHMER_MERCHANT_NAME") or st.get("SHOP_NAME") or "Gold Fx"),
+            merchant_city=(st.get("BAKONG_CITY") or "Phnom Penh"),
+            bill_number="TEST01",
+            currency=(st.get("BAKONG_CURRENCY") or "USD"),
+        )
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)[:200]})
+    qr = resp.get("qr_image_url") or resp.get("qr") or ""
+    if resp.get("success") or qr:
+        return jsonify({
+            "ok": True,
+            "message": "Bakong KHQR OK ✓ (NBC API)",
+            "qr_image_url": qr,
+            "md5": resp.get("md5"),
+            "bakong_id": bakong_id,
+            "merchant": st.get("KHMER_MERCHANT_NAME") or st.get("SHOP_NAME") or "Gold Fx",
+        })
+    return jsonify({
+        "ok": False,
+        "error": resp.get("error") or resp.get("message") or str(resp)[:200],
+    })
+
+
 @app.get("/health")
 def health():
     return jsonify({
@@ -686,6 +737,49 @@ def err_500(e):
 signal_engine.start_background(
     lambda: db_read().get("settings") or {}, DATA_DIR / "signal.lock"
 )
+
+
+def _payment_watcher():
+    """Background: auto-activate Pro when Bakong/Khmer System reports paid."""
+    import threading
+
+    def loop():
+        while True:
+            try:
+                time.sleep(8)
+                d = db_read()
+                s = d.get("settings") or {}
+                token = (s.get("BAKONG_TOKEN") or s.get("KHMER_SECRET_KEY") or s.get("KHMER_PROFILE_KEY") or "").strip()
+                if not token:
+                    continue
+                changed = False
+                for order in d.get("orders") or []:
+                    if order.get("status") not in ("pending_payment", "waiting_confirm"):
+                        continue
+                    md5 = order.get("bakong_md5")
+                    if not md5:
+                        continue
+                    try:
+                        resp = bakong_pay.check(token=token, md5=md5)
+                    except Exception:
+                        continue
+                    st = (resp.get("status") or resp.get("payment_status") or "").lower()
+                    if st in ("paid", "completed", "success", "approved"):
+                        try:
+                            bakong_pay.confirm(token=token, md5=md5)
+                        except Exception:
+                            pass
+                        _activate_pro(d, order)
+                        changed = True
+                if changed:
+                    db_write(d)
+            except Exception:
+                time.sleep(5)
+
+    threading.Thread(target=loop, daemon=True, name="payment-watcher").start()
+
+
+_payment_watcher()
 
 
 if __name__ == "__main__":
