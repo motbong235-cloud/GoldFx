@@ -253,6 +253,21 @@ def market_proxy(p):
     return jsonify(data)
 
 
+@app.route("/api/indicator")
+def indicator():
+    """Indicator code set by admin. INDICATOR_ACCESS = 'pro' -> only Pro users get the code."""
+    st = db_read().get("settings") or {}
+    code = str(st.get("INDICATOR_CODE") or "")
+    if not code.strip():
+        return jsonify({"ok": True, "code": "", "locked": False})
+    if str(st.get("INDICATOR_ACCESS") or "all") == "pro":
+        email = session.get("user_email")
+        u = ((db_read().get("users") or {}).get(email)) if email else None
+        if not (u and u.get("pro")):
+            return jsonify({"ok": True, "code": "", "locked": True})
+    return jsonify({"ok": True, "code": code, "locked": False})
+
+
 @app.route("/api/config")
 def public_config():
     st = db_read().get("settings") or {}
@@ -616,6 +631,8 @@ def admin_settings():
         "SIGNAL_ENABLED",
         "SIGNAL_TIMEFRAMES",
         "SIGNAL_SYMBOLS",
+        "INDICATOR_CODE",
+        "INDICATOR_ACCESS",
     ]
     for k in keys:
         if k in body:
@@ -625,6 +642,10 @@ def admin_settings():
                     val = float(val)
                 except Exception:
                     val = 9.99
+            if k == "INDICATOR_CODE":
+                val = str(val or "")[:60000]
+            if k == "INDICATOR_ACCESS":
+                val = "pro" if str(val) == "pro" else "all"
             s[k] = val
     db_write(d)
     return jsonify({"ok": True, "settings": s})
