@@ -56,9 +56,7 @@ a{color:var(--cyan);text-decoration:none}
 .logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;letter-spacing:-.03em;flex-shrink:0}
 .logo svg{width:28px;height:28px}
 .badge-pro{font-size:9px;font-weight:800;padding:2px 7px;border-radius:99px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1200;letter-spacing:.3px}
-.pair-switch{display:flex;gap:3px;background:var(--card);border-radius:10px;padding:3px;border:1px solid var(--line)}
-.pair-switch button{padding:6px 10px;border-radius:8px;font-weight:700;font-size:11px;color:var(--muted)}
-.pair-switch button.on{background:rgba(251,191,36,.18);color:var(--gold)}
+.pair-label{font-weight:800;font-size:12px;color:var(--gold);padding:6px 10px;border-radius:8px;background:rgba(251,191,36,.14);border:1px solid rgba(251,191,36,.28);letter-spacing:.02em}
 .price-live{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--green);margin-left:2px;white-space:nowrap}
 .top-right{margin-left:auto;display:flex;gap:6px;align-items:center}
 .icon-btn{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--card);border:1px solid var(--line);color:var(--muted);position:relative}
@@ -70,9 +68,9 @@ a{color:var(--cyan);text-decoration:none}
 @media(min-width:960px){.layout{grid-template-columns:1fr 320px}}
 
 .main{display:flex;flex-direction:column;min-height:0}
-.tf-bar{display:flex;gap:4px;padding:8px 10px;overflow-x:auto;border-bottom:1px solid var(--line);-webkit-overflow-scrolling:touch}
-.tf-bar button{flex:0 0 auto;padding:7px 14px;border-radius:9px;font-weight:700;font-size:12px;color:var(--muted)}
-.tf-bar button.on{background:rgba(251,191,36,.15);color:var(--gold)}
+.tf-bar{display:flex;gap:6px;padding:10px 12px;overflow-x:auto;border-bottom:1px solid var(--line);-webkit-overflow-scrolling:touch;background:var(--panel)}
+.tf-bar button{flex:1;min-width:64px;padding:11px 14px;border-radius:12px;font-weight:800;font-size:13px;color:var(--muted);background:var(--card);border:1px solid var(--line);text-align:center}
+.tf-bar button.on{background:linear-gradient(135deg,rgba(251,191,36,.28),rgba(251,191,36,.12));color:var(--gold);border-color:rgba(251,191,36,.45);box-shadow:0 0 0 1px rgba(251,191,36,.15)}
 .notice{padding:7px 12px;font-size:11px;color:var(--orange);background:rgba(251,146,60,.06);border-bottom:1px solid rgba(251,146,60,.12);line-height:1.4}
 .status-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 10px}
 .stat-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
@@ -99,6 +97,21 @@ a{color:var(--cyan);text-decoration:none}
 .lvl.live .tag{background:rgba(251,146,60,.2);color:var(--orange)}
 .hint{font-size:11px;color:var(--faint);margin-top:12px;line-height:1.5}
 
+/* Indicators panel */
+.ind-grid{display:flex;flex-direction:column;gap:8px}
+.ind-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 12px}
+.ind-card .ind-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.ind-card .ind-name{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.3px;text-transform:uppercase}
+.ind-card .ind-val{font-family:var(--mono);font-weight:800;font-size:15px}
+.ind-card .ind-sub{font-size:10px;color:var(--faint);margin-top:4px;line-height:1.4}
+.ind-card .ind-bar{height:4px;border-radius:99px;background:#1e293b;margin-top:8px;overflow:hidden;position:relative}
+.ind-card .ind-bar i{display:block;height:100%;border-radius:99px;transition:width .4s}
+.ind-card .ind-row{display:flex;justify-content:space-between;gap:8px;margin-top:4px;font-family:var(--mono);font-size:11px}
+.ind-card .ind-row span{color:var(--muted)}
+.ind-card .bull{color:var(--green)}
+.ind-card .bear{color:var(--red)}
+.ind-card .neu{color:var(--gold)}
+
 .alert-item{display:flex;align-items:flex-start;gap:10px;padding:11px;border-radius:11px;background:var(--card);border:1px solid var(--line);margin-bottom:6px}
 .alert-item.new{border-color:rgba(52,211,153,.4)}
 .alert-item .dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;margin-top:4px}
@@ -108,9 +121,47 @@ a{color:var(--cyan);text-decoration:none}
 
 .bottom-nav{display:flex;justify-content:space-around;padding:6px 4px calc(8px + var(--safe));background:rgba(6,10,17,.95);border-top:1px solid var(--line);position:sticky;bottom:0;z-index:30;backdrop-filter:blur(12px)}
 @media(min-width:960px){.bottom-nav{display:none}}
-.bottom-nav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600;color:var(--muted);padding:4px 12px;min-width:56px}
+.bottom-nav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600;color:var(--muted);padding:4px 10px;min-width:52px;position:relative}
 .bottom-nav button.on{color:var(--gold)}
 .bottom-nav svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.bottom-nav .chat-dot{position:absolute;top:2px;right:8px;width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 2px var(--bg)}
+
+/* ===== LIVE CHAT (full panel) ===== */
+.chat-panel{position:fixed;inset:0;z-index:90;background:var(--bg);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .28s cubic-bezier(.2,.8,.2,1);visibility:hidden}
+.chat-panel.open{transform:translateY(0);visibility:visible}
+.chat-head{display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(6,10,17,.96);border-bottom:1px solid var(--line);backdrop-filter:blur(12px)}
+.chat-head .back{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--card);border:1px solid var(--line);color:var(--muted)}
+.chat-head h2{font-size:16px;font-weight:800;flex:1}
+.chat-head .live-pill{font-size:10px;font-weight:800;padding:4px 10px;border-radius:99px;background:rgba(52,211,153,.15);color:var(--green);display:flex;align-items:center;gap:5px}
+.chat-head .live-pill i{width:6px;height:6px;border-radius:50%;background:var(--green);animation:chatPulse 1.4s ease-in-out infinite}
+@keyframes chatPulse{0%,100%{opacity:1}50%{opacity:.35}}
+.chat-meta{padding:8px 14px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--line);background:var(--panel);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.chat-meta .chip{padding:3px 8px;border-radius:99px;background:var(--card);border:1px solid var(--line);font-weight:700;font-size:10px}
+.chat-msgs{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
+.chat-msg{display:flex;gap:10px;max-width:92%;animation:msgIn .25s ease}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.chat-msg.me{align-self:flex-end;flex-direction:row-reverse}
+.chat-msg .av{width:32px;height:32px;border-radius:10px;flex-shrink:0;display:grid;place-items:center;font-weight:800;font-size:11px;color:#041018}
+.chat-msg .av.sys{background:linear-gradient(135deg,#fbbf24,#f59e0b)}
+.chat-msg .av.bot{background:linear-gradient(135deg,#22d3ee,#3b82f6)}
+.chat-msg .av.user{background:linear-gradient(135deg,#a78bfa,#6366f1)}
+.chat-msg .av.me{background:linear-gradient(135deg,#34d399,#10b981)}
+.chat-msg .bubble{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;min-width:0}
+.chat-msg.me .bubble{background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.28)}
+.chat-msg .bubble .who{font-size:10px;font-weight:800;color:var(--gold);margin-bottom:3px}
+.chat-msg.me .bubble .who{color:var(--green)}
+.chat-msg .bubble .body{font-size:13px;line-height:1.45;word-break:break-word}
+.chat-msg .bubble .time{font-size:9px;color:var(--faint);margin-top:5px;text-align:right}
+.chat-msg.signal .bubble{border-color:rgba(52,211,153,.35);background:rgba(52,211,153,.06)}
+.chat-msg.signal .bubble .who{color:var(--green)}
+.chat-input-row{display:flex;gap:8px;padding:10px 12px calc(10px + var(--safe));background:var(--panel);border-top:1px solid var(--line);align-items:center}
+.chat-input-row input{flex:1;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--text);outline:none}
+.chat-input-row input:focus{border-color:rgba(251,191,36,.4)}
+.chat-input-row .send{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1200;display:grid;place-items:center;flex-shrink:0}
+.chat-input-row .send:disabled{opacity:.5}
+.chat-tg-bar{padding:8px 12px;background:rgba(34,211,238,.06);border-top:1px solid rgba(34,211,238,.15);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.chat-tg-bar span{font-size:11px;color:var(--muted)}
+.chat-tg-bar a{font-size:12px;font-weight:800;color:var(--cyan);padding:6px 12px;border-radius:10px;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.25)}
 
 /* modal */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:80;display:flex;align-items:flex-end;justify-content:center}
@@ -171,12 +222,12 @@ pre.pine{background:var(--card);border:1px solid var(--line);border-radius:12px;
     <span class="wm-text">Gold<span class="f-gold">F</span><span class="x-cyan">x</span></span>
     <span class="badge-pro hidden" id="proBadge">PRO</span>
   </div>
-  <div class="pair-switch" id="pairSwitch">
-    <button type="button" class="on" data-sym="OANDA:XAUUSD">XAU</button>
-    <button type="button" data-sym="BINANCE:BTCUSDT">BTC</button>
-  </div>
+  <span class="pair-label">XAUUSD</span>
   <span class="price-live" id="livePrice">—</span>
   <div class="top-right">
+    <button class="icon-btn" type="button" onclick="openLiveChat()" title="Live Chat" aria-label="Live Chat">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    </button>
     <button class="icon-btn" type="button" onclick="openModal('alerts')" title="Alerts" aria-label="Alerts">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
       <span class="n hidden" id="alertN">0</span>
@@ -193,8 +244,6 @@ pre.pine{background:var(--card);border:1px solid var(--line);border-radius:12px;
       <button type="button" data-tf="5">5m</button>
       <button type="button" class="on" data-tf="15">15m</button>
       <button type="button" data-tf="60">1h</button>
-      <button type="button" data-tf="240">4h</button>
-      <button type="button" data-tf="D">1D</button>
     </div>
     <div class="notice" id="notice">Gold Fx · Multi-TF range levels · Enable browser alerts for signals</div>
     <div class="status-row">
@@ -218,12 +267,19 @@ pre.pine{background:var(--card);border:1px solid var(--line);border-radius:12px;
   <aside class="side">
     <div class="side-tabs">
       <button type="button" class="on" data-tab="levels">Levels</button>
+      <button type="button" data-tab="inds">Indicators</button>
       <button type="button" data-tab="alerts">Alerts</button>
       <button type="button" data-tab="code" id="codeTabBtn" style="display:none">Code</button>
     </div>
     <div class="side-body" id="tab-levels">
       <div class="levels" id="levelsList"></div>
       <p class="hint">UP/DN = range structure · LIVE = last · MEAN = midpoint · OPEN = session ref</p>
+    </div>
+    <div class="side-body hidden" id="tab-inds">
+      <div class="ind-grid" id="indsList">
+        <p class="hint">កំពុងគណនា indicators…</p>
+      </div>
+      <p class="hint">RSI · MACD · EMA · Bollinger · Stochastic · ATR · ពីទិន្នន័យពិត</p>
     </div>
     <div class="side-body hidden" id="tab-alerts">
       <button class="btn-ghost" type="button" style="margin-bottom:10px" onclick="enablePush()">🔔 Enable browser alerts</button>
@@ -246,16 +302,44 @@ pre.pine{background:var(--card);border:1px solid var(--line);border-radius:12px;
   <button type="button" data-nav="alerts" onclick="openModal('alerts')">
     <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>Alerts
   </button>
-  <button type="button" data-nav="pro" onclick="location.href='/pro'">
-    <svg viewBox="0 0 24 24"><path d="M3 7l4 12h10l4-12-5 4-4-7-4 7z"/></svg>Pro
+  <button type="button" data-nav="chat" onclick="openLiveChat()">
+    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Live Chat
+    <span class="chat-dot" id="chatDot"></span>
   </button>
   <button type="button" data-nav="tg" onclick="openModal('tg')">
-    <svg viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg>TG
+    <svg viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg>Telegram
   </button>
   <button type="button" data-nav="account" onclick="openModal('account')">
     <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Account
   </button>
 </nav>
+</div>
+
+<!-- LIVE CHAT PANEL -->
+<div class="chat-panel" id="chatPanel" aria-hidden="true">
+  <div class="chat-head">
+    <button type="button" class="back" onclick="closeLiveChat()" aria-label="Back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <h2>Gold Fx Live Chat</h2>
+    <span class="live-pill"><i></i> LIVE</span>
+  </div>
+  <div class="chat-meta">
+    <span class="chip" id="chatPairChip">XAUUSD</span>
+    <span class="chip" id="chatTfChip">15m</span>
+    <span style="margin-left:auto;font-size:10px" id="chatOnline">Community · signals</span>
+  </div>
+  <div class="chat-msgs" id="chatMsgs"></div>
+  <div class="chat-tg-bar">
+    <span>ចូល Telegram group សម្រាប់ chat ពិត</span>
+    <a id="chatTgLink" href="https://t.me/" target="_blank" rel="noopener">Join TG →</a>
+  </div>
+  <div class="chat-input-row">
+    <input id="chatInput" type="text" placeholder="សរសេរសារ…" maxlength="400" autocomplete="off">
+    <button type="button" class="send" id="chatSend" onclick="sendChatMsg()" aria-label="Send">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg>
+    </button>
+  </div>
 </div>
 
 <div class="modal-bg hidden" id="modalBg" onclick="if(event.target===this)closeModal()">
@@ -348,12 +432,19 @@ function loadChart(){
       hide_side_toolbar: true,
       hide_top_toolbar: true,
       hide_legend: true,
-      allow_symbol_change: true,
+      allow_symbol_change: false,
       withdateranges: false,
       details: false,
       hotlist: false,
       calendar: false,
-      studies: ['MASimple@tv-basicstudies'],
+      studies: [
+        'MASimple@tv-basicstudies',
+        'MAExp@tv-basicstudies',
+        'BB@tv-basicstudies',
+        'RSI@tv-basicstudies',
+        'MACD@tv-basicstudies',
+        'StochasticRSI@tv-basicstudies',
+      ],
       autosize: true,
       height: '100%',
       width: '100%',
@@ -361,22 +452,13 @@ function loadChart(){
     chartReady = true;
     document.getElementById('feedStatus').textContent = '● LIVE';
     document.getElementById('feedStatus').style.color = 'var(--green)';
-    document.getElementById('feedSub').textContent = symbol.split(':')[1] || symbol;
+    document.getElementById('feedSub').textContent = 'XAUUSD';
   } catch(e){
     el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Chart failed to load · check network</div>';
     document.getElementById('feedStatus').textContent = '● OFFLINE';
     document.getElementById('feedStatus').style.color = 'var(--red)';
   }
 }
-document.getElementById('pairSwitch').addEventListener('click', e => {
-  const b = e.target.closest('button[data-sym]');
-  if(!b) return;
-  document.querySelectorAll('#pairSwitch button').forEach(x => x.classList.remove('on'));
-  b.classList.add('on');
-  symbol = b.dataset.sym;
-  loadChart();
-  startLive();
-});
 document.getElementById('tfBar').addEventListener('click', e => {
   const b = e.target.closest('button[data-tf]');
   if(!b) return;
@@ -390,16 +472,17 @@ document.querySelectorAll('.side-tabs button').forEach(b => {
   b.onclick = () => {
     document.querySelectorAll('.side-tabs button').forEach(x => x.classList.remove('on'));
     b.classList.add('on');
-    ['levels','alerts','code'].forEach(id => {
-      document.getElementById('tab-'+id).classList.toggle('hidden', b.dataset.tab !== id);
+    ['levels','inds','alerts','code'].forEach(id => {
+      const el = document.getElementById('tab-'+id);
+      if(el) el.classList.toggle('hidden', b.dataset.tab !== id);
     });
   };
 });
 
 /* ========== Real market feed + levels + signals ========== */
-// Real prices from Binance public API (CORS enabled). XAU uses PAXG (gold-backed token, tracks spot gold).
-const FEED = { 'OANDA:XAUUSD': 'PAXGUSDT', 'BINANCE:BTCUSDT': 'BTCUSDT' };
-const TF_MAP = { '5':'5m', '15':'15m', '60':'1h', '240':'4h', 'D':'1d' };
+// Real prices from Binance public API. XAU uses PAXG (gold-backed token, tracks spot gold).
+const FEED_SYM = 'PAXGUSDT';
+const TF_MAP = { '5':'5m', '15':'15m', '60':'1h' };
 // Try own server proxy first (fast, cached, not blocked), then public Binance mirrors.
 const BASES = ['/api/mkt/', 'https://data-api.binance.vision/api/v3/', 'https://api.binance.com/api/v3/'];
 let baseIdx = 0;
@@ -414,7 +497,7 @@ let lastFire = {};
 let liveTimer = null, levelTimer = null, feedSeq = 0;
 
 function fmt(n){ return Number(n).toFixed(2); }
-function feedSymbol(){ return FEED[symbol] || 'PAXGUSDT'; }
+function feedSymbol(){ return FEED_SYM; }
 
 async function bget(path){
   let lastErr;
@@ -468,6 +551,162 @@ function renderLevels(price){
   document.getElementById('livePrice').textContent = fmt(price);
 }
 
+
+/* ========== Technical Indicators (from real klines) ========== */
+function sma(arr, n){
+  if(arr.length < n) return null;
+  let s = 0; for(let i = arr.length - n; i < arr.length; i++) s += arr[i];
+  return s / n;
+}
+function ema(arr, n){
+  if(arr.length < n) return null;
+  const k = 2 / (n + 1);
+  let e = arr.slice(0, n).reduce((a,b)=>a+b,0) / n;
+  for(let i = n; i < arr.length; i++) e = arr[i] * k + e * (1 - k);
+  return e;
+}
+function rsi(closes, n){
+  if(closes.length < n + 1) return null;
+  let gains = 0, losses = 0;
+  for(let i = closes.length - n; i < closes.length; i++){
+    const d = closes[i] - closes[i-1];
+    if(d >= 0) gains += d; else losses -= d;
+  }
+  if(losses === 0) return 100;
+  const rs = (gains / n) / (losses / n);
+  return 100 - (100 / (1 + rs));
+}
+function macd(closes){
+  if(closes.length < 35) return null;
+  // simplified: EMA12 - EMA26, signal = EMA9 of that series approximated on full series
+  const k12 = 2/13, k26 = 2/27, k9 = 2/10;
+  let e12 = closes[0], e26 = closes[0];
+  const macdLine = [];
+  for(let i = 0; i < closes.length; i++){
+    e12 = closes[i]*k12 + e12*(1-k12);
+    e26 = closes[i]*k26 + e26*(1-k26);
+    macdLine.push(e12 - e26);
+  }
+  let sig = macdLine[0];
+  for(let i = 0; i < macdLine.length; i++) sig = macdLine[i]*k9 + sig*(1-k9);
+  const m = macdLine[macdLine.length-1];
+  return { macd: m, signal: sig, hist: m - sig };
+}
+function stochastic(kl, n, kSmooth){
+  if(kl.length < n) return null;
+  const w = kl.slice(-n);
+  const hi = Math.max(...w.map(k => +k[2]));
+  const lo = Math.min(...w.map(k => +k[3]));
+  const close = +kl[kl.length-1][4];
+  if(hi === lo) return 50;
+  return ((close - lo) / (hi - lo)) * 100;
+}
+function atr(kl, n){
+  if(kl.length < n + 1) return null;
+  let sum = 0;
+  for(let i = kl.length - n; i < kl.length; i++){
+    const h = +kl[i][2], l = +kl[i][3], pc = +kl[i-1][4];
+    sum += Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+  }
+  return sum / n;
+}
+function bollinger(closes, n, mult){
+  const mid = sma(closes, n);
+  if(mid == null) return null;
+  const w = closes.slice(-n);
+  const variance = w.reduce((a,c) => a + (c - mid) * (c - mid), 0) / n;
+  const sd = Math.sqrt(variance);
+  return { mid, upper: mid + mult * sd, lower: mid - mult * sd };
+}
+
+function computeIndicators(kl){
+  const closes = kl.map(k => +k[4]);
+  const last = closes[closes.length - 1];
+  const r = rsi(closes, 14);
+  const m = macd(closes);
+  const st = stochastic(kl, 14, 3);
+  const a = atr(kl, 14);
+  const bb = bollinger(closes, 20, 2);
+  const e9 = ema(closes, 9);
+  const e21 = ema(closes, 21);
+  const e50 = ema(closes, 50);
+  const s20 = sma(closes, 20);
+  return { last, rsi: r, macd: m, stoch: st, atr: a, bb, ema9: e9, ema21: e21, ema50: e50, sma20: s20 };
+}
+
+function indClass(v, lo, hi){
+  if(v == null) return 'neu';
+  if(v >= hi) return 'bear'; // overbought for RSI/stoch
+  if(v <= lo) return 'bull'; // oversold
+  return 'neu';
+}
+function trendClass(a, b){
+  if(a == null || b == null) return 'neu';
+  return a >= b ? 'bull' : 'bear';
+}
+function fmtN(n, d){
+  if(n == null || isNaN(n)) return '—';
+  return Number(n).toFixed(d == null ? 2 : d);
+}
+
+function renderIndicators(kl){
+  const el = document.getElementById('indsList');
+  if(!el || !kl || !kl.length) return;
+  const I = computeIndicators(kl);
+  const rsiC = indClass(I.rsi, 30, 70);
+  const stC = indClass(I.stoch, 20, 80);
+  const macdC = I.macd ? (I.macd.hist >= 0 ? 'bull' : 'bear') : 'neu';
+  const emaC = trendClass(I.ema9, I.ema21);
+  const bbPos = I.bb && I.last != null
+    ? Math.max(0, Math.min(100, ((I.last - I.bb.lower) / (I.bb.upper - I.bb.lower)) * 100))
+    : 50;
+
+  el.innerHTML = `
+    <div class="ind-card">
+      <div class="ind-top"><span class="ind-name">RSI (14)</span><span class="ind-val ${rsiC}">${fmtN(I.rsi,1)}</span></div>
+      <div class="ind-bar"><i style="width:${Math.max(0,Math.min(100,I.rsi||0))}%;background:${rsiC==='bull'?'var(--green)':rsiC==='bear'?'var(--red)':'var(--gold)'}"></i></div>
+      <div class="ind-sub">${I.rsi!=null?(I.rsi>=70?'Overbought · រង់ចាំ pullback':I.rsi<=30?'Oversold · រក buy zone':'Neutral zone'):'—'}</div>
+    </div>
+    <div class="ind-card">
+      <div class="ind-top"><span class="ind-name">MACD (12,26,9)</span><span class="ind-val ${macdC}">${I.macd?fmtN(I.macd.hist,2):'—'}</span></div>
+      <div class="ind-row">
+        <span>MACD <b class="${macdC}">${I.macd?fmtN(I.macd.macd,2):'—'}</b></span>
+        <span>Signal <b>${I.macd?fmtN(I.macd.signal,2):'—'}</b></span>
+      </div>
+      <div class="ind-sub">${I.macd?(I.macd.hist>=0?'Histogram + · momentum up':'Histogram − · momentum down'):'—'}</div>
+    </div>
+    <div class="ind-card">
+      <div class="ind-top"><span class="ind-name">EMA Trend</span><span class="ind-val ${emaC}">${I.ema9!=null&&I.ema21!=null?(I.ema9>=I.ema21?'Bullish':'Bearish'):'—'}</span></div>
+      <div class="ind-row">
+        <span>EMA9 <b>${fmtN(I.ema9)}</b></span>
+        <span>EMA21 <b>${fmtN(I.ema21)}</b></span>
+      </div>
+      <div class="ind-row" style="margin-top:2px">
+        <span>EMA50 <b>${fmtN(I.ema50)}</b></span>
+        <span>SMA20 <b>${fmtN(I.sma20)}</b></span>
+      </div>
+    </div>
+    <div class="ind-card">
+      <div class="ind-top"><span class="ind-name">Bollinger (20,2)</span><span class="ind-val">${I.bb?fmtN(bbPos,0)+'%':'—'}</span></div>
+      <div class="ind-bar"><i style="width:${bbPos}%;background:var(--cyan)"></i></div>
+      <div class="ind-row">
+        <span>Upper <b>${fmtN(I.bb&&I.bb.upper)}</b></span>
+        <span>Mid <b>${fmtN(I.bb&&I.bb.mid)}</b></span>
+        <span>Lower <b>${fmtN(I.bb&&I.bb.lower)}</b></span>
+      </div>
+    </div>
+    <div class="ind-card">
+      <div class="ind-top"><span class="ind-name">Stochastic (14)</span><span class="ind-val ${stC}">${fmtN(I.stoch,1)}</span></div>
+      <div class="ind-bar"><i style="width:${Math.max(0,Math.min(100,I.stoch||0))}%;background:${stC==='bull'?'var(--green)':stC==='bear'?'var(--red)':'var(--gold)'}"></i></div>
+      <div class="ind-sub">${I.stoch!=null?(I.stoch>=80?'Overbought':I.stoch<=20?'Oversold':'Mid range'):'—'}</div>
+    </div>
+    <div class="ind-card">
+      <div class="ind-top"><span class="ind-name">ATR (14)</span><span class="ind-val neu">${fmtN(I.atr)}</span></div>
+      <div class="ind-sub">Volatility · ចលនាតម្លៃជាមធ្យមក្នុង TF នេះ</div>
+    </div>`;
+}
+
+
 // Same maths as the Pine script: SMA(close,50), highest/lowest(50), 0.25/0.5/0.75 of range
 function computeLevels(kl, dayOpen){
   const w = kl.slice(-LEN);
@@ -503,12 +742,13 @@ async function refreshLevels(seq){
   const tf = TF_MAP[interval] || '15m';
   try{
     const [kl, day] = await Promise.all([
-      bget(`klines?symbol=${sym}&interval=${tf}&limit=${LEN+5}`),
+      bget(`klines?symbol=${sym}&interval=${tf}&limit=${Math.max(LEN+5, 60)}`),
       bget(`klines?symbol=${sym}&interval=1d&limit=1`),
     ]);
     if(seq !== feedSeq) return;              // pair/timeframe changed meanwhile
     LEVELS = computeLevels(kl, +day[0][1]);
     renderDrive(kl);
+    renderIndicators(kl);
     if(BASE) renderLevels(BASE);
     setFeed(true, sym + ' · ' + tf);
   }catch(e){
@@ -528,7 +768,7 @@ function detectSignals(prev, now){
     DN1:LEVELS.dn1, DN2:LEVELS.dn2, DN3:LEVELS.dn3, MEAN:LEVELS.mean,
   };
   const tf = TF_MAP[interval] || '15m';
-  const name = (symbol.split(':')[1] || symbol);
+  const name = 'XAUUSD';
   for(const tag in map){
     if(!u.pro && !FREE_TAGS.includes(tag)) continue;
     const lv = map[tag];
@@ -599,6 +839,7 @@ function pushAlert(title, sub){
     try{ new Notification('Gold Fx', { body: title+' · '+sub }); }catch(e){}
   }
   toast(title);
+  try{ pushChatSignal(title, sub); }catch(e){}
 }
 function enablePush(){
   if(!('Notification' in window)){ toast('Browser នេះមិន support', true); return; }
@@ -763,8 +1004,97 @@ function esc(s){
   return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 function navTo(which){
-  if(which==='chart') document.getElementById('tv_chart').scrollIntoView({behavior:'smooth'});
+  if(which==='chart'){ closeLiveChat(); document.getElementById('tv_chart').scrollIntoView({behavior:'smooth'}); }
+  document.querySelectorAll('#bottomNav button').forEach(b => b.classList.toggle('on', b.dataset.nav === which));
 }
+
+/* ========== Live Chat ========== */
+const CHAT_KEY = 'goldfx_chat_v1';
+function loadChat(){ try{ return JSON.parse(localStorage.getItem(CHAT_KEY)||'[]'); }catch{ return []; } }
+function saveChat(list){ localStorage.setItem(CHAT_KEY, JSON.stringify(list.slice(-120))); }
+
+function seedChatIfEmpty(){
+  let list = loadChat();
+  if(list.length) return;
+  const now = Date.now();
+  list = [
+    { id:1, role:'sys', who:'Gold Fx', body:'សូមស្វាគមន៍មកកាន់ Live Chat · signals ពិត + community', ts: now - 600000 },
+    { id:2, role:'bot', who:'Signal Bot', body:'🟢 ▲ Break UP1 · XAUUSD 15m · តាមដាន level', ts: now - 480000, signal:true },
+    { id:3, role:'user', who:'Trader KH', body:'XAU 15m កំពុង hold MEAN · រង់ចាំ break', ts: now - 300000 },
+    { id:4, role:'bot', who:'Signal Bot', body:'Market drive · Sellers lead · រក្សា risk', ts: now - 120000, signal:true },
+  ];
+  saveChat(list);
+}
+
+function fmtChatTime(ts){
+  try{ return new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }catch{ return ''; }
+}
+
+function renderChat(){
+  const el = document.getElementById('chatMsgs');
+  if(!el) return;
+  const list = loadChat();
+  const meName = (CURRENT && CURRENT.name) || 'You';
+  el.innerHTML = list.map(m => {
+    const isMe = m.role === 'me';
+    const avCls = isMe ? 'me' : (m.role === 'sys' ? 'sys' : (m.role === 'bot' || m.signal ? 'bot' : 'user'));
+    const letter = (m.who || '?').charAt(0).toUpperCase();
+    return `<div class="chat-msg ${isMe?'me':''} ${m.signal?'signal':''}">
+      <div class="av ${avCls}">${letter}</div>
+      <div class="bubble">
+        <div class="who">${esc(m.who || (isMe ? meName : 'User'))}</div>
+        <div class="body">${esc(m.body)}</div>
+        <div class="time">${fmtChatTime(m.ts)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function openLiveChat(){
+  seedChatIfEmpty();
+  const panel = document.getElementById('chatPanel');
+  panel.classList.add('open');
+  panel.setAttribute('aria-hidden','false');
+  document.querySelectorAll('#bottomNav button').forEach(b => b.classList.toggle('on', b.dataset.nav === 'chat'));
+  const tf = TF_MAP[interval] || '15m';
+  document.getElementById('chatPairChip').textContent = 'XAUUSD';
+  document.getElementById('chatTfChip').textContent = tf;
+  document.getElementById('chatTgLink').href = TG_FAMILY || 'https://t.me/';
+  renderChat();
+  setTimeout(() => document.getElementById('chatInput')?.focus(), 280);
+}
+
+function closeLiveChat(){
+  const panel = document.getElementById('chatPanel');
+  panel.classList.remove('open');
+  panel.setAttribute('aria-hidden','true');
+  document.querySelectorAll('#bottomNav button').forEach(b => b.classList.toggle('on', b.dataset.nav === 'chart'));
+}
+
+function sendChatMsg(){
+  const input = document.getElementById('chatInput');
+  const text = (input.value || '').trim();
+  if(!text) return;
+  const list = loadChat();
+  const meName = (CURRENT && CURRENT.name) || 'You';
+  list.push({ id: Date.now(), role:'me', who: meName, body: text, ts: Date.now() });
+  saveChat(list);
+  input.value = '';
+  renderChat();
+}
+
+function pushChatSignal(title, sub){
+  const list = loadChat();
+  list.push({ id: Date.now(), role:'bot', who:'Signal Bot', body: title + (sub ? ' · ' + sub : ''), ts: Date.now(), signal:true });
+  saveChat(list);
+  if(document.getElementById('chatPanel')?.classList.contains('open')) renderChat();
+}
+
+document.getElementById('chatInput')?.addEventListener('keydown', e => {
+  if(e.key === 'Enter'){ e.preventDefault(); sendChatMsg(); }
+}
+);
 
 /* ========== Init ========== */
 seedAlerts();
@@ -810,6 +1140,7 @@ api('me').then(r => {
   CURRENT = r.user;
   enterApp();
   loadIndicator();
+  seedChatIfEmpty();
 });
 </script>
 <script>
