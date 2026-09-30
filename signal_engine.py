@@ -29,11 +29,11 @@ BASES = [
 _good = 0
 LEN, RNG = 50, 1.0
 COOLDOWN = 5 * 60
-LEVEL_REFRESH = 30
+LEVEL_REFRESH = 180  # 3 min — levels stable enough to be crossed
 POLL_SEC = 5
 NAMES = {"PAXGUSDT": "XAUUSD", "XAUUSDT": "XAUUSD"}
 
-STATE = {"running": False, "last_sent": "", "last_error": "", "sent_count": 0}
+STATE = {"running": False, "last_sent": "", "last_error": "", "sent_count": 0, "last_price": "", "last_check": "", "last_levels": ""}
 _lock_fh = None
 
 # Level ladder order (low → high)
@@ -62,11 +62,17 @@ def market(path: str, timeout: int = 6, budget: int | None = None, **_kwargs):
 
 
 def compute_levels(kl):
-    w = kl[-LEN:]
+    """Levels from closed candles only (exclude last forming bar) so levels don't chase price."""
+    closed = kl[:-1] if len(kl) > LEN else kl
+    w = closed[-LEN:] if len(closed) >= LEN else closed
+    if len(w) < 10:
+        w = kl[-LEN:]
     mean = sum(float(k[4]) for k in w) / len(w)
     hi = max(float(k[2]) for k in w)
     lo = min(float(k[3]) for k in w)
     r = (hi - lo) * RNG
+    if r < 1e-9:
+        r = mean * 0.001
     return {
         "MEAN": mean,
         "UP1": mean + r * 0.25,
@@ -192,20 +198,26 @@ def _loop(get_settings):
                         kl = market(f"klines?symbol={sym}&interval={tf}&limit={LEN + 5}")
                         levels[k] = compute_levels(kl)
                         last_lvl[k] = now
-                if gold_feed and sym in ("PAXGUSDT", "XAUTUSDT", "XAUUSDT"):
-                    try:
-                        price = float(gold_feed.live_gold_price()["price_num"])
-                    except Exception:
-                        price = float(market(f"ticker/price?symbol={sym}")["price"])
-                else:
-                    price = float(market(f"ticker/price?symbol={sym}")["price"])
-                p0, prev[sym] = prev.get(sym), price
+                        L = levels[k]
+                        STATE["last_levels"] = (
+                            f"{sym} {tf} MEAN={L['MEAN']:.2f} "
+                            f"UP1={L['UP1']:.2f} DN1={L['DN1']:.2f}"
+                        )
+                # Same source as klines (PAXGUSDT) — do NOT blend spot APIs here
+                price = float(market(f"ticker/price?symbol={sym}")["price"])
+                p0 = prev.get(sym)
+                prev[sym] = price
+                STATE["last_price"] = f"{sym} {price:.2f}"
+                STATE["last_check"] = time.strftime("%H:%M:%S", time.gmtime(now + 7 * 3600))
                 if p0 is None:
                     continue
                 for tf in tfs:
                     lvmap = levels.get((sym, tf), {})
+                    if not lvmap:
+                        continue
                     for tag, lv in lvmap.items():
-                        up, dn = p0 < lv <= price, p0 > lv >= price
+                        up = p0 < lv <= price
+                        dn = p0 > lv >= price
                         if not (up or dn):
                             continue
                         fk = (sym, tf, tag, "u" if up else "d")

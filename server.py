@@ -309,6 +309,10 @@ def public_config():
             "pro_price": st.get("PRO_PRICE", 9.99),
             "telegram": st.get("TELEGRAM") or "",
             "telegram_bot": st.get("TELEGRAM_BOT") or "",
+            "alerts_enabled": False,
+            "chat_enabled": str(st.get("CHAT_ENABLED", "1")) != "0",
+            "default_tf": st.get("DEFAULT_TF") or "15",
+            "chart_symbol": st.get("CHART_SYMBOL") or "OANDA:XAUUSD",
         }
     )
 
@@ -675,8 +679,12 @@ def admin_settings():
         "TG_BOT_TOKEN",
         "SIGNAL_CHANNEL_ID",
         "SIGNAL_ENABLED",
+        "ALERTS_ENABLED",
         "SIGNAL_TIMEFRAMES",
         "SIGNAL_SYMBOLS",
+        "CHAT_ENABLED",
+        "DEFAULT_TF",
+        "CHART_SYMBOL",
         
     ]
     for k in keys:
