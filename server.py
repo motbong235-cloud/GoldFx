@@ -281,8 +281,22 @@ def market_proxy(p):
 
 @app.route("/api/indicator")
 def indicator():
-    """Disabled: indicator code is no longer served to anyone (including Pro)."""
-    return jsonify({"ok": True, "code": "", "locked": False})
+    """Serve Pine Script indicator code from admin settings."""
+    st = db_read().get("settings") or {}
+    access = str(st.get("INDICATOR_ACCESS") or "all").lower()
+    code = str(st.get("INDICATOR_CODE") or "")
+    if access == "off":
+        return jsonify({"ok": True, "code": "", "locked": True, "reason": "disabled"})
+    if access == "pro":
+        uid = session.get("uid")
+        if not uid:
+            return jsonify({"ok": False, "error": "login required", "locked": True}), 401
+        users = {u.get("id"): u for u in (db_read().get("users") or [])}
+        u = users.get(uid) or {}
+        if not u.get("pro"):
+            return jsonify({"ok": True, "code": "", "locked": True, "reason": "pro_only"})
+    return jsonify({"ok": True, "code": code, "locked": False, "access": access})
+
 
 
 @app.route("/api/config")
@@ -663,8 +677,7 @@ def admin_settings():
         "SIGNAL_ENABLED",
         "SIGNAL_TIMEFRAMES",
         "SIGNAL_SYMBOLS",
-        "INDICATOR_CODE",
-        "INDICATOR_ACCESS",
+        
     ]
     for k in keys:
         if k in body:
