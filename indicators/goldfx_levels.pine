@@ -1,1 +1,38 @@
+//@version=5
+indicator("Gold Fx Levels", overlay=true, max_lines_count=50, max_labels_count=50)
 
+len = input.int(50, "Lookback")
+rngMul = input.float(1.0, "Range multiplier")
+
+// Closed bars only
+src = close
+hi = ta.highest(high, len)
+lo = ta.lowest(low, len)
+mean = ta.sma(src, len)
+r = (hi - lo) * rngMul
+
+up1 = mean + r * 0.25
+up2 = mean + r * 0.50
+up3 = mean + r * 0.75
+dn1 = mean - r * 0.25
+dn2 = mean - r * 0.50
+dn3 = mean - r * 0.75
+
+plot(mean, "MEAN", color=color.new(color.gray, 0), linewidth=1)
+plot(up1, "UP1", color=color.new(color.green, 0), linewidth=1)
+plot(up2, "UP2", color=color.new(color.green, 30), linewidth=1)
+plot(up3, "UP3", color=color.new(color.green, 50), linewidth=1)
+plot(dn1, "DN1", color=color.new(color.red, 0), linewidth=1)
+plot(dn2, "DN2", color=color.new(color.red, 30), linewidth=1)
+plot(dn3, "DN3", color=color.new(color.red, 50), linewidth=1)
+
+// Break labels (last bar)
+var float lastUp = na
+var float lastDn = na
+brokeUp = ta.crossover(close, up1)
+brokeDn = ta.crossunder(close, dn1)
+
+if brokeUp
+    label.new(bar_index, up1, "▲ Break UP1\\nEntry " + str.tostring(up1, format.mintick), style=label.style_label_down, color=color.new(color.green, 20), textcolor=color.white, size=size.small)
+if brokeDn
+    label.new(bar_index, dn1, "▼ Break DN1\\nEntry " + str.tostring(dn1, format.mintick), style=label.style_label_up, color=color.new(color.red, 20), textcolor=color.white, size=size.small)
