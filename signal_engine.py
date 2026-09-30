@@ -1,10 +1,9 @@
-"""Gold Fx signal engine: real level-break signals -> Telegram channel.
+"""Gold Fx signal engine: level-break → Telegram group with Entry / TP / SL.
 
-Runs as a background thread inside server.py. Reads settings from db.json
-(admin panel), so nothing needs to be configured in env.
-Settings used: TG_BOT_TOKEN, SIGNAL_CHANNEL_ID, SIGNAL_ENABLED ("0" = off),
-               SIGNAL_TIMEFRAMES (default "15m"), SIGNAL_SYMBOLS (default "PAXGUSDT,BTCUSDT")
-Standalone: BOT_TOKEN / CHANNEL_ID env vars.
+Runs as a background thread inside server.py.
+Settings (Admin → Bakong · Settings / Signal):
+  TG_BOT_TOKEN, SIGNAL_CHANNEL_ID, SIGNAL_ENABLED ("0"=off),
+  SIGNAL_TIMEFRAMES (default "5m,15m,1h"), SIGNAL_SYMBOLS (default "PAXGUSDT")
 """
 from __future__ import annotations
 
@@ -16,7 +15,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-# data-api.binance.vision = public market-data mirror (not geo-blocked like api.binance.com)
+try:
+    import gold_feed
+except ImportError:
+    gold_feed = None
+
 BASES = [
     "https://data-api.binance.vision/api/v3/",
     "https://api.binance.com/api/v3/",
@@ -24,36 +27,38 @@ BASES = [
     "https://api2.binance.com/api/v3/",
 ]
 _good = 0
-LEN, RNG = 50, 1.0            # same as Pine indicator + dashboard
-COOLDOWN = 5 * 60             # sec per symbol/tf/level/direction
+LEN, RNG = 50, 1.0
+COOLDOWN = 5 * 60
 LEVEL_REFRESH = 30
 POLL_SEC = 5
-NAMES = {"PAXGUSDT": "XAUUSD", "BTCUSDT": "BTCUSDT"}
+NAMES = {"PAXGUSDT": "XAUUSD", "XAUUSDT": "XAUUSD"}
 
 STATE = {"running": False, "last_sent": "", "last_error": "", "sent_count": 0}
 _lock_fh = None
 
+# Level ladder order (low → high)
+LADDER = ("DN3", "DN2", "DN1", "MEAN", "UP1", "UP2", "UP3")
 
-def market(path: str, timeout: int = 6, budget: float = 0):
-    """GET a Binance market-data path (e.g. 'klines?symbol=..') trying mirrors in turn.
-    budget > 0 caps the TOTAL time across all mirrors (used by the web proxy so a
-    dead upstream can't tie up a web worker for 4 x timeout seconds)."""
+
+def market(path: str, timeout: int = 6, budget: int | None = None, **_kwargs):
+    """Fetch Binance public market data. `budget` = max mirrors to try (optional)."""
     global _good
     last = None
-    t0 = time.time()
-    for n in range(len(BASES)):
-        if budget and n and time.time() - t0 >= budget:
-            break
+    n_try = len(BASES) if budget is None else max(1, min(int(budget), len(BASES)))
+    for n in range(n_try):
         i = (_good + n) % len(BASES)
         try:
-            req = urllib.request.Request(BASES[i] + path, headers={"User-Agent": "goldfx-signal"})
+            req = urllib.request.Request(
+                BASES[i] + path,
+                headers={"User-Agent": "GoldFx/1.0", "Accept": "application/json"},
+            )
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 data = json.loads(r.read().decode())
             _good = i
             return data
         except Exception as e:
             last = e
-    raise last
+    raise last if last else RuntimeError("market data unavailable")
 
 
 def compute_levels(kl):
@@ -64,16 +69,72 @@ def compute_levels(kl):
     r = (hi - lo) * RNG
     return {
         "MEAN": mean,
-        "UP1": mean + r * .25, "UP2": mean + r * .50, "UP3": mean + r * .75,
-        "DN1": mean - r * .25, "DN2": mean - r * .50, "DN3": mean - r * .75,
+        "UP1": mean + r * 0.25,
+        "UP2": mean + r * 0.50,
+        "UP3": mean + r * 0.75,
+        "DN1": mean - r * 0.25,
+        "DN2": mean - r * 0.50,
+        "DN3": mean - r * 0.75,
     }
 
 
+def _targets(levels: dict, tag: str, up: bool):
+    """Entry = broken level; TP1/TP2 next levels; SL opposite side."""
+    entry = levels[tag]
+    idx = LADDER.index(tag) if tag in LADDER else 3
+    if up:
+        tps = [levels[LADDER[i]] for i in range(idx + 1, min(idx + 3, len(LADDER)))]
+        sl_i = max(0, idx - 1)
+        sl = levels[LADDER[sl_i]]
+        side = "BUY"
+    else:
+        tps = [levels[LADDER[i]] for i in range(idx - 1, max(idx - 3, -1), -1)]
+        sl_i = min(len(LADDER) - 1, idx + 1)
+        sl = levels[LADDER[sl_i]]
+        side = "SELL"
+    while len(tps) < 2:
+        # fallback distance from range
+        step = abs(levels["UP1"] - levels["MEAN"]) or (entry * 0.001)
+        if up:
+            tps.append(entry + step * (len(tps) + 1))
+        else:
+            tps.append(entry - step * (len(tps) + 1))
+    return side, entry, tps[0], tps[1], sl
+
+
+def format_signal(sym: str, tf: str, tag: str, up: bool, levels: dict, price: float) -> str:
+    name = NAMES.get(sym, sym)
+    side, entry, tp1, tp2, sl = _targets(levels, tag, up)
+    if up:
+        head = "🟢 ▲ BREAK"
+        emoji = "📈"
+    else:
+        head = "🔴 ▼ BREAK"
+        emoji = "📉"
+    rr = abs(tp1 - entry) / abs(entry - sl) if abs(entry - sl) > 1e-9 else 0
+    ict = time.strftime("%H:%M:%S", time.gmtime(time.time() + 7 * 3600))
+    return (
+        f"{head} <b>{tag}</b> {emoji}\n"
+        f"<b>{name}</b> · {tf} · <b>{side}</b>\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"📍 Entry: <code>{entry:.2f}</code>\n"
+        f"🎯 TP1: <code>{tp1:.2f}</code>\n"
+        f"🎯 TP2: <code>{tp2:.2f}</code>\n"
+        f"🛡 SL: <code>{sl:.2f}</code>\n"
+        f"💰 Price: <code>{price:.2f}</code>\n"
+        f"📊 R:R ≈ 1:{rr:.1f}\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"⏰ {ict} (ICT) · Gold Fx Signal"
+    )
+
+
 def send(token: str, chat_id: str, text: str):
-    """Returns (ok, error_message)."""
+    """Returns (ok, error_message). chat_id = @channel or -100xxxxxxxxxx"""
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     data = urllib.parse.urlencode({
-        "chat_id": chat_id, "text": text, "parse_mode": "HTML",
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
         "disable_web_page_preview": "true",
     }).encode()
     try:
@@ -95,8 +156,16 @@ def _cfg(get_settings):
     tok = str(s.get("TG_BOT_TOKEN") or "").strip()
     ch = str(s.get("SIGNAL_CHANNEL_ID") or "").strip()
     on = str(s.get("SIGNAL_ENABLED", "1")) != "0"
-    syms = [x.strip().upper() for x in str(s.get("SIGNAL_SYMBOLS") or "PAXGUSDT,BTCUSDT").split(",") if x.strip()]
-    tfs = [x.strip() for x in str(s.get("SIGNAL_TIMEFRAMES") or "15m").split(",") if x.strip()]
+    syms = [
+        x.strip().upper()
+        for x in str(s.get("SIGNAL_SYMBOLS") or "PAXGUSDT").split(",")
+        if x.strip()
+    ]
+    tfs = [
+        x.strip()
+        for x in str(s.get("SIGNAL_TIMEFRAMES") or "5m,15m,1h").split(",")
+        if x.strip()
+    ]
     return tok, ch, on, syms, tfs
 
 
@@ -111,7 +180,7 @@ def _loop(get_settings):
             time.sleep(POLL_SEC)
             continue
         if not (tok and ch and on):
-            prev.clear()           # avoid a fake "cross" when re-enabled
+            prev.clear()
             time.sleep(POLL_SEC)
             continue
         now = time.time()
@@ -123,12 +192,19 @@ def _loop(get_settings):
                         kl = market(f"klines?symbol={sym}&interval={tf}&limit={LEN + 5}")
                         levels[k] = compute_levels(kl)
                         last_lvl[k] = now
-                price = float(market(f"ticker/price?symbol={sym}")["price"])
+                if gold_feed and sym in ("PAXGUSDT", "XAUTUSDT", "XAUUSDT"):
+                    try:
+                        price = float(gold_feed.live_gold_price()["price_num"])
+                    except Exception:
+                        price = float(market(f"ticker/price?symbol={sym}")["price"])
+                else:
+                    price = float(market(f"ticker/price?symbol={sym}")["price"])
                 p0, prev[sym] = prev.get(sym), price
                 if p0 is None:
                     continue
                 for tf in tfs:
-                    for tag, lv in levels.get((sym, tf), {}).items():
+                    lvmap = levels.get((sym, tf), {})
+                    for tag, lv in lvmap.items():
                         up, dn = p0 < lv <= price, p0 > lv >= price
                         if not (up or dn):
                             continue
@@ -136,10 +212,7 @@ def _loop(get_settings):
                         if now - fired.get(fk, 0) < COOLDOWN:
                             continue
                         fired[fk] = now
-                        head = "🟢 ▲ Break" if up else "🔴 ▼ Break"
-                        msg = (f"{head} <b>{tag}</b>\n<b>{NAMES.get(sym, sym)}</b> · {tf}\n"
-                               f"Level: <code>{lv:.2f}</code>\nPrice: <code>{price:.2f}</code>\n"
-                               f"⏰ {time.strftime('%H:%M:%S', time.gmtime(now + 7 * 3600))} (ICT)")
+                        msg = format_signal(sym, tf, tag, up, lvmap, price)
                         ok, err = send(tok, ch, msg)
                         if ok:
                             STATE["sent_count"] += 1
@@ -153,7 +226,6 @@ def _loop(get_settings):
 
 
 def _acquire_lock(path):
-    """One engine per machine even with several gunicorn workers / reloader."""
     global _lock_fh
     try:
         import fcntl
@@ -161,7 +233,7 @@ def _acquire_lock(path):
         fcntl.flock(_lock_fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
         return True
     except ImportError:
-        return True                # Windows: no lock, assume single process
+        return True
     except OSError:
         return False
 
@@ -177,6 +249,9 @@ if __name__ == "__main__":
     t, c = os.environ.get("BOT_TOKEN", ""), os.environ.get("CHANNEL_ID", "")
     if not (t and c):
         raise SystemExit("Set BOT_TOKEN and CHANNEL_ID")
-    _loop(lambda: {"TG_BOT_TOKEN": t, "SIGNAL_CHANNEL_ID": c,
-                   "SIGNAL_SYMBOLS": os.environ.get("SYMBOLS", ""),
-                   "SIGNAL_TIMEFRAMES": os.environ.get("TIMEFRAMES", "")})
+    _loop(lambda: {
+        "TG_BOT_TOKEN": t,
+        "SIGNAL_CHANNEL_ID": c,
+        "SIGNAL_SYMBOLS": os.environ.get("SYMBOLS", "PAXGUSDT"),
+        "SIGNAL_TIMEFRAMES": os.environ.get("TIMEFRAMES", "5m,15m,1h"),
+    })

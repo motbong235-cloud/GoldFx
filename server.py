@@ -23,6 +23,7 @@ from flask import (
 )
 
 import bakong_pay
+import gold_feed
 import signal_engine
 
 BASE = Path(__file__).resolve().parent
@@ -238,13 +239,31 @@ def market_proxy(p):
             return jsonify({"ok": False, "error": "bad interval"}), 400
         path, ttl = f"klines?symbol={sym}&interval={itv}&limit={lim}", 10
     elif p == "ticker/price":
-        path, ttl = f"ticker/price?symbol={sym}", 1.5
+        # Gold symbols → multi-source blend (closer to real XAU spot)
+        if sym in ("PAXGUSDT", "XAUTUSDT", "XAUUSD", "XAUUSDT"):
+            path, ttl = f"gold:live:{sym}", 2.0
+            hit = _MKT_CACHE.get(path)
+            if hit and time.time() - hit[0] < ttl:
+                return jsonify(hit[1])
+            try:
+                g = gold_feed.live_gold_price()
+                data = {
+                    "symbol": sym,
+                    "price": g["price"],
+                    "gold": g,
+                }
+                _MKT_CACHE[path] = (time.time(), data)
+                return jsonify(data)
+            except Exception as e:
+                # fall through to plain Binance PAXG
+                path, ttl = "ticker/price?symbol=PAXGUSDT", 1.5
+        else:
+            path, ttl = f"ticker/price?symbol={sym}", 1.5
     else:
         return jsonify({"ok": False, "error": "not allowed"}), 404
     hit = _MKT_CACHE.get(path)
     if hit and time.time() - hit[0] < ttl:
         return jsonify(hit[1])
-    # upstream recently failed -> answer fast instead of blocking a worker again
     if time.time() < _MKT_FAIL_UNTIL.get(path, 0):
         if hit:
             return jsonify(hit[1])
@@ -253,7 +272,7 @@ def market_proxy(p):
         data = signal_engine.market(path, timeout=3, budget=5)
     except Exception as e:
         _MKT_FAIL_UNTIL[path] = time.time() + 5
-        if hit:                      # serve stale rather than fail
+        if hit:
             return jsonify(hit[1])
         return jsonify({"ok": False, "error": str(e)[:200]}), 502
     _MKT_CACHE[path] = (time.time(), data)
@@ -360,6 +379,7 @@ def pro_buy():
                 ks_data = {
                     "qr_image_url": qr,
                     "md5": resp.get("md5"),
+                    "qr_string": resp.get("qr_string"),
                     "verify_key": vkey,
                     "provider": "bakong_nbc",
                 }
@@ -671,7 +691,17 @@ def admin_signal_test():
     ch = str(st.get("SIGNAL_CHANNEL_ID") or "").strip()
     if not tok or not ch:
         return jsonify({"ok": False, "error": "ដាក់ Bot Token និង Channel ID ជាមុន (រក្សាទុកសិន)"}), 400
-    ok, err = signal_engine.send(tok, ch, "✅ <b>Gold Fx</b> · test signal — channel connected")
+    ok, err = signal_engine.send(tok, ch,
+        "✅ <b>Gold Fx</b> · Test Signal\n"
+        "━━━━━━━━━━━━━━\n"
+        "🟢 ▲ BREAK <b>UP1</b>\n"
+        "<b>XAUUSD</b> · 15m · <b>BUY</b>\n"
+        "📍 Entry: <code>2650.00</code>\n"
+        "🎯 TP1: <code>2655.00</code>\n"
+        "🎯 TP2: <code>2660.00</code>\n"
+        "🛡 SL: <code>2645.00</code>\n"
+        "━━━━━━━━━━━━━━\n"
+        "Group connected · signals will post here")
     return jsonify({"ok": ok, "error": err})
 
 

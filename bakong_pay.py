@@ -64,14 +64,16 @@ def create_khqr(
     store_label: str = "Gold Fx",
     expire_minutes: int = 10,
 ) -> str:
-    """Build dynamic KHQR per KHQR Content Guideline + Tag 99 timestamps.
+    """Dynamic KHQR (Individual Tag 29) per NBC KHQR Content Guideline.
 
-    Required structure (Individual / Tag 29):
-      00 Payload · 01 Dynamic · 29 Account · 52 MCC · 53 Currency · 54 Amount
-      58 KH · 59 Name · 60 City · [62 Additional] · 99 Timestamps · 63 CRC
+    Tag order matches official SDKs:
+      00 · 01 · 29 · 52 · 53 · 54 · 58 · 59 · 60 · [62] · 99 · 63
+    Tag 99 (creation+expiry ms, 13 digits each) is required when amount > 0.
+    CRC-16/CCITT-FALSE over payload including literal "6304".
     """
     bakong_id = (bakong_id or "").strip()
     merchant_name = (merchant_name or "Gold Fx").strip()[:25]
+    # Many banking apps expect city without excessive spaces; keep title case
     merchant_city = (merchant_city or "Phnom Penh").strip()[:15]
     currency = (currency or "USD").upper()
     if currency not in ("USD", "KHR"):
@@ -79,41 +81,48 @@ def create_khqr(
     if not bakong_id or "@" not in bakong_id:
         raise ValueError("Bakong ID ត្រូវទម្រង់ name@bank (ឧ. name@aba)")
 
-    # Tag 29 Individual: sub-tag 00 = Bakong Account ID only
+    # Tag 29 Individual — only sub-tag 00 = Bakong Account ID
     mai = _tlv("00", bakong_id)
 
-    payload = ""
-    payload += _tlv("00", "01")
-    payload += _tlv("01", "12")  # dynamic
-    payload += _tlv("29", mai)
-    payload += _tlv("52", "5999")
-    payload += _tlv("53", "840" if currency == "USD" else "116")
+    parts = []
+    parts.append(_tlv("00", "01"))                 # Payload Format Indicator
+    parts.append(_tlv("01", "12"))                 # Dynamic
+    parts.append(_tlv("29", mai))                  # Merchant Account Information
+    parts.append(_tlv("52", "5999"))               # MCC
+    parts.append(_tlv("53", "840" if currency == "USD" else "116"))
     if currency == "USD":
+        # Keep two decimals (official USD rule)
         amt_s = f"{float(amount):.2f}"
     else:
         amt_s = str(int(round(float(amount))))
-    payload += _tlv("54", amt_s)
-    payload += _tlv("58", "KH")
-    payload += _tlv("59", merchant_name)
-    payload += _tlv("60", merchant_city)
+    parts.append(_tlv("54", amt_s))
+    parts.append(_tlv("58", "KH"))
+    parts.append(_tlv("59", merchant_name))
+    parts.append(_tlv("60", merchant_city))
 
     add = ""
-    if bill_number:
-        add += _tlv("01", str(bill_number)[:25])
-    if store_label:
-        add += _tlv("03", str(store_label)[:25])
+    bn = str(bill_number or "").strip()[:25]
+    if bn:
+        add += _tlv("01", bn)
+    sl = str(store_label or "").strip()[:25]
+    if sl:
+        add += _tlv("03", sl)
     if add:
-        payload += _tlv("62", add)
+        parts.append(_tlv("62", add))
 
-    # Tag 99 — required for dynamic KHQR (creation + expiration, ms)
+    # Tag 99 — timestamps MUST be 13-digit millisecond strings
     now_ms = int(time.time() * 1000)
     exp_ms = now_ms + max(1, int(expire_minutes)) * 60 * 1000
-    ts = _tlv("00", str(now_ms)) + _tlv("01", str(exp_ms))
-    payload += _tlv("99", ts)
+    ts00 = f"{now_ms:013d}"[-13:]   # ensure exactly 13 digits
+    ts01 = f"{exp_ms:013d}"[-13:]
+    ts = _tlv("00", ts00) + _tlv("01", ts01)
+    parts.append(_tlv("99", ts))
 
-    payload += "6304"
-    payload += _crc16(payload)
-    return payload
+    payload = "".join(parts)
+    # CRC over entire string including the "6304" introducer
+    payload_with_tag = payload + "6304"
+    crc = _crc16(payload_with_tag)
+    return payload_with_tag + crc
 
 
 
