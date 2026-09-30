@@ -306,6 +306,28 @@ th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase}
       </div>
       <p style="font-size:11px;color:var(--faint);margin:8px 0 0">Save settings → Dashboard ទាញ config ថ្មី (refresh)</p>
     </div>
+
+    <div class="card" id="cardIndicator">
+      <h3>📐 Indicator Code (Pine Script)</h3>
+      <p style="font-size:11px;color:var(--muted);margin:0 0 12px;line-height:1.5">
+        ដាក់កូដ TradingView · Copy ទៅ <b>Pine Editor</b> → Add to chart · ឃើញ MEAN / UP / DN levels
+      </p>
+      <div class="field">
+        <label>Access</label>
+        <select id="s_INDICATOR_ACCESS">
+          <option value="all">ទាំងអស់ (Free + Pro)</option>
+          <option value="pro">តែ Pro</option>
+          <option value="off">បិទ</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Pine Script Code</label>
+        <textarea id="s_INDICATOR_CODE" rows="18" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.45;min-height:240px;resize:vertical;width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text)"></textarea>
+      </div>
+      <button type="button" class="btn btn-green" id="btnLoadDefaultPine" onclick="loadDefaultPine()">ដាក់កូដ Gold Fx លំនាំដើម</button>
+      <button type="button" class="btn" onclick="copyPine()" style="margin-left:8px">Copy កូដ</button>
+    </div>
+
 <script>
 const $ = s => document.querySelector(s);
 async function api(path, opt={}){
@@ -316,6 +338,22 @@ async function api(path, opt={}){
   });
   return r.json().catch(()=>({ok:false,error:'network'}));
 }
+
+const DEFAULT_PINE = '//@version=5\nindicator("Gold Fx Levels", overlay=true, max_lines_count=50, max_labels_count=50)\n\nlen = input.int(50, "Lookback")\nrngMul = input.float(1.0, "Range multiplier")\n\n// Closed bars only\nsrc = close\nhi = ta.highest(high, len)\nlo = ta.lowest(low, len)\nmean = ta.sma(src, len)\nr = (hi - lo) * rngMul\n\nup1 = mean + r * 0.25\nup2 = mean + r * 0.50\nup3 = mean + r * 0.75\ndn1 = mean - r * 0.25\ndn2 = mean - r * 0.50\ndn3 = mean - r * 0.75\n\nplot(mean, "MEAN", color=color.new(color.gray, 0), linewidth=1)\nplot(up1, "UP1", color=color.new(color.green, 0), linewidth=1)\nplot(up2, "UP2", color=color.new(color.green, 30), linewidth=1)\nplot(up3, "UP3", color=color.new(color.green, 50), linewidth=1)\nplot(dn1, "DN1", color=color.new(color.red, 0), linewidth=1)\nplot(dn2, "DN2", color=color.new(color.red, 30), linewidth=1)\nplot(dn3, "DN3", color=color.new(color.red, 50), linewidth=1)\n\n// Break labels (last bar)\nvar float lastUp = na\nvar float lastDn = na\nbrokeUp = ta.crossover(close, up1)\nbrokeDn = ta.crossunder(close, dn1)\n\nif brokeUp\n    label.new(bar_index, up1, "▲ Break UP1\\\\nEntry " + str.tostring(up1, format.mintick), style=label.style_label_down, color=color.new(color.green, 20), textcolor=color.white, size=size.small)\nif brokeDn\n    label.new(bar_index, dn1, "▼ Break DN1\\\\nEntry " + str.tostring(dn1, format.mintick), style=label.style_label_up, color=color.new(color.red, 20), textcolor=color.white, size=size.small)\n';
+function loadDefaultPine(){
+  const el = document.getElementById('s_INDICATOR_CODE');
+  if(!el) return;
+  el.value = DEFAULT_PINE;
+  toast && toast('ដាក់កូដលំនាំដើមហើយ · ចុច Save settings');
+}
+function copyPine(){
+  const el = document.getElementById('s_INDICATOR_CODE');
+  if(!el || !el.value) { alert('មិនមានកូដ'); return; }
+  navigator.clipboard.writeText(el.value).then(()=>alert('Copied · paste ក្នុង TradingView Pine Editor')).catch(()=>{
+    el.select(); document.execCommand('copy'); alert('Copied');
+  });
+}
+
 function toast(m, err){
   const t=$('#toast'); t.textContent=m; t.classList.toggle('err',!!err); t.classList.remove('hidden');
   clearTimeout(window.__t); window.__t=setTimeout(()=>t.classList.add('hidden'),2800);
