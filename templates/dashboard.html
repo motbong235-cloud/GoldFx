@@ -403,7 +403,16 @@ let interval = '15';
 let chartReady = false;
 function loadChart(){
   const el = document.getElementById('tv_chart');
+  if(!el) return;
   el.innerHTML = '';
+  if(typeof TradingView === 'undefined'){
+    try{
+      document.getElementById('feedStatus').textContent = '● WAIT';
+      document.getElementById('feedSub').textContent = 'Loading chart…';
+    }catch(e){}
+    setTimeout(loadChart, 800);
+    return;
+  }
   try {
     new TradingView.widget({
       container_id: 'tv_chart',
@@ -426,7 +435,7 @@ function loadChart(){
       studies: [],
       hide_volume: true,
       autosize: true,
-      height: '100%',
+      height: 520,
       width: '100%',
     });
     chartReady = true;
@@ -629,7 +638,7 @@ function fmtN(n, d){
   return Number(n).toFixed(d == null ? 2 : d);
 }
 
-function void(kl){
+function renderIndicators_removed(kl){
   const el = document.getElementById('indsList');
   if(!el || !kl || !kl.length) return;
   const I = computeIndicators(kl);

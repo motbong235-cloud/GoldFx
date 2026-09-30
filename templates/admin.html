@@ -248,30 +248,50 @@ th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase}
     </div>
 
     <div class="ks-box">
-      <h4>Telegram Signal Channel</h4>
-      <div class="field"><label>Bot Token (@BotFather)</label><input id="s_TG_BOT_TOKEN" type="password" placeholder="123456:ABC..." autocomplete="off"></div>
-      <div class="field"><label>Channel ID</label><input id="s_SIGNAL_CHANNEL_ID" placeholder="@channel ឬ -100xxxxxxxxxx"></div>
-      <div class="field"><label>Timeframes</label><input id="s_SIGNAL_TIMEFRAMES" placeholder="5m,15m,1h"></div>
-      <div class="field"><label>Status</label><select id="s_SIGNAL_ENABLED"><option value="1">ON · ផ្ញើ signal</option><option value="0">OFF</option></select></div>
+      <h4>📡 Telegram Signal Group</h4>
+      <p style="font-size:11px;color:var(--muted);margin:0 0 12px;line-height:1.5">
+        1) បង្កើត Bot នៅ <b>@BotFather</b> · 2) បញ្ចូល Bot ជា <b>Admin</b> ក្នុង Group/Channel ·
+        3) ដាក់ Channel ID (ឧ. <code>@goldfx_signals</code> ឬ <code>-1001234567890</code>) ·
+        Signal នឹងផ្ញើ <b>Entry · TP1 · TP2 · SL</b> ពេលតម្លៃ break level
+      </p>
+      <div class="field"><label>Bot Token (@BotFather) *</label><input id="s_TG_BOT_TOKEN" type="password" placeholder="123456789:AAH..." autocomplete="off"></div>
+      <div class="field"><label>Group / Channel ID * <span style="color:var(--gold)">(@name ឬ -100...)</span></label><input id="s_SIGNAL_CHANNEL_ID" placeholder="@goldfx_signals ឬ -100xxxxxxxxxx"></div>
+      <div class="field"><label>Timeframes (interval)</label><input id="s_SIGNAL_TIMEFRAMES" placeholder="5m,15m,1h"></div>
+      <div class="field"><label>Symbols</label><input id="s_SIGNAL_SYMBOLS" placeholder="PAXGUSDT"></div>
+      <div class="field"><label>Status</label><select id="s_SIGNAL_ENABLED"><option value="1">ON · ផ្ញើ signal ទៅ group</option><option value="0">OFF</option></select></div>
       <p id="sigStatus" style="font-size:11px;color:var(--muted);margin:0 0 10px"></p>
-      <button class="btn btn-green" type="button" onclick="testSignal()">ផ្ញើ test ទៅ channel</button>
+      <button class="btn btn-green" type="button" onclick="testSignal()">ផ្ញើ test signal (Entry/TP/SL)</button>
     </div>
 
     <div class="ks-box">
       <h4>ទំនាក់ទំនង · ទូទៅ</h4>
-      <div class="field"><label>Telegram Community</label><input id="s_TELEGRAM" placeholder="@goldfx ឬ https://t.me/..."></div>
+      <div class="field"><label>Telegram Invite (Community · ឲ្យអ្នកប្រើចូល)</label><input id="s_TELEGRAM" placeholder="https://t.me/+xxxx ឬ @goldfx"></div>
       <div class="field"><label>Telegram Bot</label><input id="s_TELEGRAM_BOT" placeholder="@bot ឬ https://t.me/..."></div>
       <div class="field"><label>Admin Password</label><input id="s_ADMIN_PASSWORD" type="password" placeholder="ទុកទទេ = មិនផ្លាស់ប្តូរ"></div>
     </div>
 
     <!-- hidden: keep IDs so save/load still works if server returns them -->
-    <input type="hidden" id="s_INDICATOR_CODE" value="">
-    <input type="hidden" id="s_INDICATOR_ACCESS" value="all">
 
-    <button class="btn btn-gold" type="button" onclick="saveSettings()">រក្សាទុក Bakong · Settings</button>
-  </div>
-</div>
-<div class="toast hidden" id="toast"></div>
+    <div class="card" id="cardIndicator">
+      <h3>📐 Indicator Code (Pine Script)</h3>
+      <p style="font-size:11px;color:var(--muted);margin:0 0 12px;line-height:1.5">
+        ដាក់កូដ <b>TradingView Pine Script</b> នៅទីនេះ · រក្សាទុកក្នុង Admin · API <code>/api/indicator</code>
+      </p>
+      <div class="field">
+        <label>Access</label>
+        <select id="s_INDICATOR_ACCESS">
+          <option value="all">ទាំងអស់ (Free + Pro)</option>
+          <option value="pro">តែ Pro</option>
+          <option value="off">បិទ</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Pine Script Code</label>
+        <textarea id="s_INDICATOR_CODE" rows="16" placeholder="// @version=5
+indicator(&quot;Gold Fx Levels&quot;, overlay=true)
+// paste Pine Script here" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.45;min-height:220px;resize:vertical;width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text)"></textarea>
+      </div>
+    </div>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -343,7 +363,7 @@ async function load(){
     </tr>`).join('') || `<tr><td colspan="5" style="color:var(--muted)">No users</td></tr>`;
 
   const set=r.settings||{};
-  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','INDICATOR_CODE','INDICATOR_ACCESS','KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID'].forEach(k=>{
+  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','INDICATOR_CODE','INDICATOR_ACCESS'].forEach(k=>{
     const el=$('#s_'+k); if(el) el.value = set[k]??(k==='SIGNAL_ENABLED'?'1':(k==='INDICATOR_ACCESS'?'all':''));
   });
   $('#s_ADMIN_PASSWORD').value = '';
@@ -367,7 +387,7 @@ async function testBakong(){
   if(box) box.classList.add('hidden');
   // save keys first so server has latest
   const body={};
-  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','SHOP_NAME'].forEach(k=>{
+  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','SHOP_NAME','INDICATOR_CODE','INDICATOR_ACCESS'].forEach(k=>{
     const el=$('#s_'+k); if(el) body[k]=el.value;
   });
   await api('admin/settings',{method:'PUT',body:JSON.stringify(body)});
@@ -387,7 +407,7 @@ async function testBakong(){
 }
 async function saveSettings(){
   const body={};
-  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','INDICATOR_CODE','INDICATOR_ACCESS','ADMIN_PASSWORD'].forEach(k=>{
+  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','ADMIN_PASSWORD','INDICATOR_CODE','INDICATOR_ACCESS'].forEach(k=>{
     const el=$('#s_'+k);
     if(!el) return;
     if(k==='ADMIN_PASSWORD' && !el.value) return;
