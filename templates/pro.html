@@ -127,6 +127,7 @@ ul.feat li .ic{width:28px;height:28px;border-radius:8px;display:grid;place-items
 .khqr-err small{display:block;margin-top:8px;color:#6b7280;font-size:11px;font-weight:500}
 
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -221,12 +222,16 @@ async function buy(){
     return;
   }
   ORDER = r.order;
+  const qrStr = (r.khmer_system && r.khmer_system.qr_string)
+    || (r.order && r.order.bakong_qr_string)
+    || (r.payment && r.payment.QR_STRING)
+    || '';
   const qr = (r.payment && r.payment.PAYMENT_QR)
     || (r.khmer_system && (r.khmer_system.qr_image_url || r.khmer_system.qr))
     || (r.order && r.order.payment_qr)
     || '';
-  const err = r.ks_error || (r.bakong && !r.bakong.enabled ? 'Bakong មិនទាន់ enable' : '') || '';
-  console.log('pro/buy', {ok:r.ok, hasQr:!!qr, err, bakong:r.bakong});
+  const err = r.ks_error || '';
+  console.log('pro/buy', {ok:r.ok, hasQr:!!(qr||qrStr), qrStrLen:(qrStr||'').length, err});
   const amt = Number(r.order.price || PRICE).toFixed(2);
   expireAt = Date.now() + EXPIRE_SEC * 1000;
 
@@ -251,12 +256,12 @@ async function buy(){
           </div>
         </div>
         <div class="khqr-body">
-          ${qr ? `
+          ${(qr||qrStr) ? `
             <div class="khqr-merchant">${esc((r.payment&&r.payment.MERCHANT)||(r.bakong&&r.bakong.merchant)||'Gold Fx')}</div>
             <div class="khqr-amount">${amt}<span class="cur">USD</span></div>
             <hr class="khqr-dash">
             <div class="khqr-qr-wrap">
-              <img src="${esc(qr)}" alt="KHQR" width="180" height="180">
+              <div id="khqrBox" style="width:180px;height:180px;margin:0 auto"></div>
               <div class="khqr-currency-badge">$</div>
             </div>
             <div class="khqr-foot">SCAN WITH ANY BANKING APP</div>
@@ -277,7 +282,19 @@ async function buy(){
     <button class="btn-outline" type="button" onclick="cancelPay()">បោះបង់</button>`;
 
   startTimer();
-  if(qr) startPoll(r.order.id);
+  // Render KHQR from full payload string (avoid truncated external image)
+  const qrStr = (r.khmer_system && r.khmer_system.qr_string)
+    || (r.order && r.order.bakong_qr_string)
+    || (r.payment && r.payment.QR_STRING)
+    || '';
+  const boxEl = document.getElementById('khqrBox');
+  if(boxEl && qrStr && typeof QRCode !== 'undefined'){
+    boxEl.innerHTML = '';
+    new QRCode(boxEl, {text: qrStr, width:180, height:180, correctLevel: QRCode.CorrectLevel.M});
+  } else if(boxEl && qr){
+    boxEl.innerHTML = '<img src="'+esc(qr)+'" width="180" height="180" alt="KHQR">';
+  }
+  if(qr || qrStr) startPoll(r.order.id);
   else {
     const st = document.getElementById('st');
     if(st) st.textContent = 'គ្មាន QR · ត្រូវ Admin ដាក់ KS key';
