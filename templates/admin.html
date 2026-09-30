@@ -272,27 +272,40 @@ th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase}
 
     <!-- hidden: keep IDs so save/load still works if server returns them -->
 
-    <div class="card" id="cardIndicator">
-      <h3>📐 Indicator Code (Pine Script)</h3>
+    <div class="card" 
+    
+    <div class="card" id="cardAppFeatures">
+      <h3>⚙️ App Settings · Chart & Chat</h3>
       <p style="font-size:11px;color:var(--muted);margin:0 0 12px;line-height:1.5">
-        ដាក់កូដ <b>TradingView Pine Script</b> នៅទីនេះ · រក្សាទុកក្នុង Admin · API <code>/api/indicator</code>
+        កំណត់ <b>Candle Chart</b> និង <b>Live Chat</b> សម្រាប់ dashboard · Browser alerts បិទហើយ
       </p>
       <div class="field">
-        <label>Access</label>
-        <select id="s_INDICATOR_ACCESS">
-          <option value="all">ទាំងអស់ (Free + Pro)</option>
-          <option value="pro">តែ Pro</option>
-          <option value="off">បិទ</option>
+        <label>Live Chat</label>
+        <select id="s_CHAT_ENABLED">
+          <option value="1">ON · បើក Live Chat</option>
+          <option value="0">OFF · បិទ Chat</option>
         </select>
       </div>
       <div class="field">
-        <label>Pine Script Code</label>
-        <textarea id="s_INDICATOR_CODE" rows="16" placeholder="// @version=5
-indicator(&quot;Gold Fx Levels&quot;, overlay=true)
-// paste Pine Script here" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.45;min-height:220px;resize:vertical;width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text)"></textarea>
+        <label>Default timeframe (Candle)</label>
+        <select id="s_DEFAULT_TF">
+          <option value="5">5m</option>
+          <option value="15" selected>15m</option>
+          <option value="60">1h</option>
+        </select>
       </div>
+      <div class="field">
+        <label>Chart symbol (TradingView)</label>
+        <input id="s_CHART_SYMBOL" placeholder="OANDA:XAUUSD" value="OANDA:XAUUSD">
+      </div>
+      <div class="field">
+        <label>Browser Alerts</label>
+        <select id="s_ALERTS_ENABLED" disabled>
+          <option value="0" selected>OFF · បិទទាំងស្រុង</option>
+        </select>
+      </div>
+      <p style="font-size:11px;color:var(--faint);margin:8px 0 0">Save settings → Dashboard ទាញ config ថ្មី (refresh)</p>
     </div>
-
 <script>
 const $ = s => document.querySelector(s);
 async function api(path, opt={}){
@@ -363,8 +376,8 @@ async function load(){
     </tr>`).join('') || `<tr><td colspan="5" style="color:var(--muted)">No users</td></tr>`;
 
   const set=r.settings||{};
-  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','INDICATOR_CODE','INDICATOR_ACCESS'].forEach(k=>{
-    const el=$('#s_'+k); if(el) el.value = set[k]??(k==='SIGNAL_ENABLED'?'1':(k==='INDICATOR_ACCESS'?'all':''));
+  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','ALERTS_ENABLED','CHAT_ENABLED','DEFAULT_TF','CHART_SYMBOL','KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','INDICATOR_CODE','INDICATOR_ACCESS'].forEach(k=>{
+    const el=$('#s_'+k); if(el) el.value = set[k]??(k==='SIGNAL_ENABLED'||k==='CHAT_ENABLED'?'1':(k==='ALERTS_ENABLED'?'0':(k==='DEFAULT_TF'?'15':(k==='CHART_SYMBOL'?'OANDA:XAUUSD':(k==='INDICATOR_ACCESS'?'all':'')))));
   });
   $('#s_ADMIN_PASSWORD').value = '';
   const sg=r.signal||{};
@@ -407,7 +420,7 @@ async function testBakong(){
 }
 async function saveSettings(){
   const body={};
-  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','ADMIN_PASSWORD','INDICATOR_CODE','INDICATOR_ACCESS'].forEach(k=>{
+  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','ALERTS_ENABLED','CHAT_ENABLED','DEFAULT_TF','CHART_SYMBOL','ADMIN_PASSWORD','INDICATOR_CODE','INDICATOR_ACCESS'].forEach(k=>{
     const el=$('#s_'+k);
     if(!el) return;
     if(k==='ADMIN_PASSWORD' && !el.value) return;

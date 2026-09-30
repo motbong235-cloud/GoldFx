@@ -272,7 +272,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
     </div>
     <div class="side-body" id="tab-alerts">
       <div class="alerts-head">
-        <button type="button" onclick="enablePush()">Enable browser alerts</button>
+        <button type="button" onclick="enablePush()">Alerts បិទហើយ</button>
         <button type="button" class="clear" onclick="clearAlerts()">Clear all</button>
       </div>
       <div id="alertsList"></div>
@@ -477,7 +477,8 @@ const TF_MAP = { '5':'5m', '15':'15m', '60':'1h' };
 const BASES = ['/api/mkt/', 'https://data-api.binance.vision/api/v3/', 'https://api.binance.com/api/v3/'];
 let baseIdx = 0;
 const LEN = 50, RNG = 1.0;              // same params as the Pine indicator
-const COOLDOWN = 5 * 60 * 1000;         // per-signal cooldown (5 min)
+const COOLDOWN = 15 * 60 * 1000;        // per-signal cooldown (15 min)
+let ALERTS_ON = false;                  // permanently disabled
 const FREE_TAGS = ['UP1', 'DN1'];       // free plan gets range breaks UP1/DN1; Pro gets all levels
 
 let BASE = 0;                           // last live price
@@ -749,27 +750,7 @@ async function refreshLevels(seq){
 }
 
 // Real signal detection: fire when live price actually crosses a level
-function detectSignals(prev, now){
-  if(prev == null || !LEVELS) return;
-  const u = currentUser() || {};
-  const map = {
-    UP1:LEVELS.up1, UP2:LEVELS.up2, UP3:LEVELS.up3,
-    DN1:LEVELS.dn1, DN2:LEVELS.dn2, DN3:LEVELS.dn3, MEAN:LEVELS.mean,
-  };
-  const tf = TF_MAP[interval] || '15m';
-  const name = 'XAUUSD';
-  for(const tag in map){
-    if(!u.pro && !FREE_TAGS.includes(tag)) continue;
-    const lv = map[tag];
-    const up = prev < lv && now >= lv;
-    const dn = prev > lv && now <= lv;
-    if(!up && !dn) continue;
-    const key = tag + (up ? 'u' : 'd');
-    if(Date.now() - (lastFire[key]||0) < COOLDOWN) continue;
-    lastFire[key] = Date.now();
-    pushAlert(`${up ? '▲ Break' : '▼ Break'} ${tag} @ ${fmt(lv)}`, `${name} · ${tf} · price ${fmt(now)}`);
-  }
-}
+function detectSignals(prev, now){ /* alerts disabled */ return; }
 
 async function tickPrice(seq){
   try{
@@ -832,7 +813,7 @@ function pushAlert(title, sub){
     try{ new Notification('Gold Fx', { body: title+' · '+sub }); }catch(e){}
   }
   toast(title);
-  try{ pushChatSignal(title, sub); }catch(e){}
+  /* no chat signal from alerts */
 }
 function enablePush(){
   if(!('Notification' in window)){ toast('Browser នេះមិន support', true); return; }
@@ -1053,6 +1034,8 @@ function renderChat(){
 }
 
 function openLiveChat(){
+  if(window.__CHAT_OFF){ toast('Live Chat បិទដោយ Admin', true); return; }
+
   seedChatIfEmpty();
   const panel = document.getElementById('chatPanel');
   panel.classList.add('open');
@@ -1112,6 +1095,12 @@ api('config').then(c => {
   if(c.pro_price) PRO_PRICE = Number(c.pro_price);
   TG_FAMILY = tgUrl(c.telegram);
   TG_BOT = tgUrl(c.telegram_bot);
+  ALERTS_ON = false; // alerts fully disabled
+  if(c.chat_enabled === false || c.chat_enabled === '0'){
+    window.__CHAT_OFF = true;
+  }
+  if(c.chart_symbol){ try{ symbol = c.chart_symbol; }catch(e){} }
+  if(c.default_tf){ try{ interval = String(c.default_tf); }catch(e){} }
 }).catch(()=>{});
 
 api('me').then(r => {
