@@ -289,9 +289,21 @@ th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase}
       <div class="field">
         <label>Default timeframe (Candle)</label>
         <select id="s_DEFAULT_TF">
+          <option value="1">1m</option>
           <option value="5">5m</option>
           <option value="15" selected>15m</option>
+          <option value="30">30m</option>
           <option value="60">1h</option>
+          <option value="240">4h</option>
+          <option value="D">1D</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Default candle type</label>
+        <select id="s_DEFAULT_CANDLE_STYLE">
+          <option value="1" selected>Candle</option>
+          <option value="8">Heikin Ashi</option>
+          <option value="2">Line</option>
         </select>
       </div>
       <div class="field">
@@ -310,7 +322,7 @@ th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase}
     <div class="card" id="cardIndicator">
       <h3>📐 Indicator Code (Pine Script)</h3>
       <p style="font-size:11px;color:var(--muted);margin:0 0 12px;line-height:1.5">
-        ដាក់កូដ TradingView · Copy ទៅ <b>Pine Editor</b> → Add to chart · ឃើញ MEAN / UP / DN levels
+        សរសេរ ឬ Paste កូដ signal indicator របស់អ្នកនៅទីនេះ · ចុច <b>Save code</b> · Copy ទៅ <b>Pine Editor</b> → Add to chart
       </p>
       <div class="field">
         <label>Access</label>
@@ -321,11 +333,21 @@ th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase}
         </select>
       </div>
       <div class="field">
-        <label>Pine Script Code</label>
-        <textarea id="s_INDICATOR_CODE" rows="18" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.45;min-height:240px;resize:vertical;width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text)"></textarea>
+        <label style="display:flex;justify-content:space-between;align-items:center">
+          <span>Pine Script Code</span>
+          <span id="pineMeta" style="font-size:10px;color:var(--muted);font-weight:500">0 lines · 0 / 60000</span>
+        </label>
+        <textarea id="s_INDICATOR_CODE" rows="18" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" placeholder="// Paste your Pine Script (signal indicator) here" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.45;min-height:280px;resize:vertical;width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);white-space:pre;overflow:auto;tab-size:2"></textarea>
       </div>
-      <button type="button" class="btn btn-green" id="btnLoadDefaultPine" onclick="loadDefaultPine()">ដាក់កូដ Gold Fx លំនាំដើម</button>
-      <button type="button" class="btn" onclick="copyPine()" style="margin-left:8px">Copy កូដ</button>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <button type="button" class="btn btn-gold" onclick="savePine()">💾 Save code</button>
+        <button type="button" class="btn btn-ghost" onclick="pastePine()">📋 Paste</button>
+        <button type="button" class="btn btn-ghost" onclick="copyPine()">Copy</button>
+        <button type="button" class="btn btn-ghost" onclick="clearPine()">Clear</button>
+        <button type="button" class="btn btn-ghost" onclick="resetPine()">↩ Reset</button>
+        <button type="button" class="btn btn-ghost" id="btnLoadDefaultPine" onclick="loadDefaultPine()">Template</button>
+      </div>
+      <p id="pineState" style="font-size:11px;color:var(--faint);margin:8px 0 0"></p>
     </div>
 
 <script>
@@ -339,20 +361,82 @@ async function api(path, opt={}){
   return r.json().catch(()=>({ok:false,error:'network'}));
 }
 
-const DEFAULT_PINE = '//@version=5\nindicator("Gold Fx Levels", overlay=true, max_lines_count=50, max_labels_count=50)\n\nlen = input.int(50, "Lookback")\nrngMul = input.float(1.0, "Range multiplier")\n\n// Closed bars only\nsrc = close\nhi = ta.highest(high, len)\nlo = ta.lowest(low, len)\nmean = ta.sma(src, len)\nr = (hi - lo) * rngMul\n\nup1 = mean + r * 0.25\nup2 = mean + r * 0.50\nup3 = mean + r * 0.75\ndn1 = mean - r * 0.25\ndn2 = mean - r * 0.50\ndn3 = mean - r * 0.75\n\nplot(mean, "MEAN", color=color.new(color.gray, 0), linewidth=1)\nplot(up1, "UP1", color=color.new(color.green, 0), linewidth=1)\nplot(up2, "UP2", color=color.new(color.green, 30), linewidth=1)\nplot(up3, "UP3", color=color.new(color.green, 50), linewidth=1)\nplot(dn1, "DN1", color=color.new(color.red, 0), linewidth=1)\nplot(dn2, "DN2", color=color.new(color.red, 30), linewidth=1)\nplot(dn3, "DN3", color=color.new(color.red, 50), linewidth=1)\n\n// Break labels (last bar)\nvar float lastUp = na\nvar float lastDn = na\nbrokeUp = ta.crossover(close, up1)\nbrokeDn = ta.crossunder(close, dn1)\n\nif brokeUp\n    label.new(bar_index, up1, "▲ Break UP1\\\\nEntry " + str.tostring(up1, format.mintick), style=label.style_label_down, color=color.new(color.green, 20), textcolor=color.white, size=size.small)\nif brokeDn\n    label.new(bar_index, dn1, "▼ Break DN1\\\\nEntry " + str.tostring(dn1, format.mintick), style=label.style_label_up, color=color.new(color.red, 20), textcolor=color.white, size=size.small)\n';
-function loadDefaultPine(){
-  const el = document.getElementById('s_INDICATOR_CODE');
-  if(!el) return;
-  el.value = DEFAULT_PINE;
-  toast && toast('ដាក់កូដលំនាំដើមហើយ · ចុច Save settings');
+// Starter template only - no UP/DN levels. Paste your own signal indicator over it.
+const DEFAULT_PINE = '//@version=5\nindicator("My Signal", overlay=true)\n\n// === ដាក់ signal indicator របស់អ្នកនៅទីនេះ ===\n// signal ពេល candle បិទ: ប្រើ barstate.isconfirmed\n// buy = ta.crossover(close, ta.sma(close, 20)) and barstate.isconfirmed\n\n';
+const PINE_MAX = 60000;
+let pineSaved = '';
+function pineEl(){ return document.getElementById('s_INDICATOR_CODE'); }
+function pineMeta(){
+  const el = pineEl(); if(!el) return;
+  const v = el.value, n = v ? v.split('\n').length : 0;
+  const m = document.getElementById('pineMeta');
+  if(m){ m.textContent = n + ' lines · ' + v.length + ' / ' + PINE_MAX; m.style.color = v.length > PINE_MAX ? 'var(--red)' : 'var(--muted)'; }
+  const s = document.getElementById('pineState');
+  if(s){
+    const dirty = v !== pineSaved;
+    s.textContent = dirty ? '● មិនទាន់ Save' : (v ? '✓ Saved' : '');
+    s.style.color = dirty ? 'var(--gold)' : 'var(--green)';
+  }
+}
+function setPine(v, note){
+  const el = pineEl(); if(!el) return;
+  el.value = v; el.dataset.dirty = '1'; pineMeta();
+  if(note) toast(note);
+}
+async function savePine(){
+  const el = pineEl(); if(!el) return;
+  if(el.value.length > PINE_MAX){ toast('កូដវែងពេក (max ' + PINE_MAX + ')', true); return; }
+  const acc = document.getElementById('s_INDICATOR_ACCESS');
+  const r = await api('admin/settings', {method:'PUT', body: JSON.stringify({INDICATOR_CODE: el.value, INDICATOR_ACCESS: acc ? acc.value : 'all'})});
+  if(r.ok){ pineSaved = el.value; delete el.dataset.dirty; if(acc) delete acc.dataset.dirty; pineMeta(); toast('Save code ហើយ ✓'); }
+  else toast(r.error || 'Fail', true);
+}
+async function pastePine(){
+  try{
+    const t = await navigator.clipboard.readText();
+    if(!t){ toast('Clipboard ទទេ', true); return; }
+    setPine(t, 'Paste ហើយ · ចុច Save code');
+  }catch(e){
+    pineEl().focus();
+    toast('ចុចជាប់លើប្រអប់ រួចជ្រើស Paste', true);
+  }
 }
 function copyPine(){
-  const el = document.getElementById('s_INDICATOR_CODE');
-  if(!el || !el.value) { alert('មិនមានកូដ'); return; }
-  navigator.clipboard.writeText(el.value).then(()=>alert('Copied · paste ក្នុង TradingView Pine Editor')).catch(()=>{
-    el.select(); document.execCommand('copy'); alert('Copied');
-  });
+  const el = pineEl();
+  if(!el || !el.value){ toast('មិនមានកូដ', true); return; }
+  const ok = () => toast('Copied · paste ក្នុង TradingView Pine Editor');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(el.value).then(ok).catch(()=>{ el.select(); document.execCommand('copy'); ok(); });
+  } else { el.select(); document.execCommand('copy'); ok(); }
 }
+function clearPine(){
+  const el = pineEl(); if(!el || !el.value) return;
+  if(!confirm('លុបកូដទាំងអស់ក្នុងប្រអប់? (Reset អាចយកមកវិញ បើមិនទាន់ Save)')) return;
+  setPine('', 'លុបហើយ · ចុច Save code ដើម្បីបញ្ជាក់');
+}
+function resetPine(){
+  const el = pineEl(); if(!el) return;
+  el.value = pineSaved; delete el.dataset.dirty; pineMeta();
+  toast('Reset ទៅកូដដែលបាន Save ចុងក្រោយ');
+}
+function loadDefaultPine(){
+  const el = pineEl(); if(!el) return;
+  if(el.value.trim() && !confirm('ជំនួសកូដបច្ចុប្បន្នដោយ Template?')) return;
+  setPine(DEFAULT_PINE, 'ដាក់ Template ហើយ');
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const el = pineEl(); if(!el) return;
+  el.addEventListener('input', () => { el.dataset.dirty = '1'; pineMeta(); });
+  el.addEventListener('keydown', e => {
+    if(e.key === 'Tab'){
+      e.preventDefault();
+      const s = el.selectionStart, t = el.selectionEnd;
+      el.value = el.value.slice(0, s) + '  ' + el.value.slice(t);
+      el.selectionStart = el.selectionEnd = s + 2;
+      el.dispatchEvent(new Event('input'));
+    }
+  });
+});
 
 function toast(m, err){
   const t=$('#toast'); t.textContent=m; t.classList.toggle('err',!!err); t.classList.remove('hidden');
@@ -414,10 +498,12 @@ async function load(){
     </tr>`).join('') || `<tr><td colspan="5" style="color:var(--muted)">No users</td></tr>`;
 
   const set=r.settings||{};
-  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','ALERTS_ENABLED','CHAT_ENABLED','DEFAULT_TF','CHART_SYMBOL','KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','INDICATOR_CODE','INDICATOR_ACCESS'].forEach(k=>{
-    const el=$('#s_'+k); if(el) el.value = set[k]??(k==='SIGNAL_ENABLED'||k==='CHAT_ENABLED'?'1':(k==='ALERTS_ENABLED'?'0':(k==='DEFAULT_TF'?'15':(k==='CHART_SYMBOL'?'OANDA:XAUUSD':(k==='INDICATOR_ACCESS'?'all':'')))));
+  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','ALERTS_ENABLED','CHAT_ENABLED','DEFAULT_TF','DEFAULT_CANDLE_STYLE','CHART_SYMBOL','KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','INDICATOR_CODE','INDICATOR_ACCESS'].forEach(k=>{
+    const el=$('#s_'+k); if(el && document.activeElement!==el && !el.dataset.dirty) el.value = set[k]??(k==='SIGNAL_ENABLED'||k==='CHAT_ENABLED'?'1':(k==='ALERTS_ENABLED'?'0':(k==='DEFAULT_TF'?'15':(k==='DEFAULT_CANDLE_STYLE'?'1':(k==='CHART_SYMBOL'?'OANDA:XAUUSD':(k==='INDICATOR_ACCESS'?'all':''))))));
   });
   $('#s_ADMIN_PASSWORD').value = '';
+  if(!(pineEl() && pineEl().dataset.dirty)){ pineSaved = set.INDICATOR_CODE || ''; }
+  pineMeta();
   const sg=r.signal||{};
   $('#sigStatus').textContent = 'Engine: '+(sg.running?'running':'stopped')+' · sent '+(sg.sent_count||0)+(sg.last_sent?' · last: '+sg.last_sent:'')+(sg.last_error?' · ⚠ '+sg.last_error:'');
 }
@@ -456,9 +542,11 @@ async function testBakong(){
     toast(r.error||'Bakong test fail', true);
   }
 }
+document.addEventListener('input', e => { const t=e.target; if(t && t.id && t.id.startsWith('s_')) t.dataset.dirty='1'; });
+document.addEventListener('change', e => { const t=e.target; if(t && t.id && t.id.startsWith('s_')) t.dataset.dirty='1'; });
 async function saveSettings(){
   const body={};
-  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','ALERTS_ENABLED','CHAT_ENABLED','DEFAULT_TF','CHART_SYMBOL','ADMIN_PASSWORD','INDICATOR_CODE','INDICATOR_ACCESS'].forEach(k=>{
+  ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','ALERTS_ENABLED','CHAT_ENABLED','DEFAULT_TF','DEFAULT_CANDLE_STYLE','CHART_SYMBOL','ADMIN_PASSWORD','INDICATOR_CODE','INDICATOR_ACCESS'].forEach(k=>{
     const el=$('#s_'+k);
     if(!el) return;
     if(k==='ADMIN_PASSWORD' && !el.value) return;
@@ -466,6 +554,7 @@ async function saveSettings(){
   });
   // mirror profile into secret if secret empty
   const r = await api('admin/settings',{method:'PUT',body:JSON.stringify(body)});
+  if(r.ok) document.querySelectorAll('[id^="s_"]').forEach(x => delete x.dataset.dirty);
   toast(r.ok?'រក្សាទុកហើយ':(r.error||'Fail'), !r.ok);
   load();
 }

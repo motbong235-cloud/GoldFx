@@ -71,8 +71,9 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 @media(min-width:960px){.layout{grid-template-columns:1fr 320px}}
 
 .main{display:flex;flex-direction:column;min-height:0;flex:1}
-.tf-bar{display:flex;gap:3px;margin:4px 8px 0;padding:3px;border-radius:11px;background:var(--panel);border:1px solid var(--line)}
-.tf-bar button{flex:1;padding:7px 8px;border-radius:9px;font-weight:700;font-size:12px;color:var(--muted);text-align:center;transition:background .15s,color .15s}
+.tf-bar{display:flex;gap:3px;margin:4px 8px 0;padding:3px;border-radius:11px;background:var(--panel);border:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.tf-bar::-webkit-scrollbar{display:none}
+.tf-bar button{flex:1 0 auto;white-space:nowrap;padding:7px 8px;border-radius:9px;font-weight:700;font-size:12px;color:var(--muted);text-align:center;transition:background .15s,color .15s}
 .tf-bar button.on{background:rgba(251,191,36,.16);color:var(--gold);box-shadow:inset 0 0 0 1px rgba(251,191,36,.35)}
 .notice{margin:4px 8px 0;padding:4px 8px;font-size:10px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:8px;line-height:1.3}
 .status-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px 8px}
@@ -243,11 +244,20 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 <div class="layout">
   <div class="main">
     <div class="tf-bar" id="tfBar">
+      <button type="button" data-tf="1">1m</button>
       <button type="button" data-tf="5">5m</button>
       <button type="button" class="on" data-tf="15">15m</button>
+      <button type="button" data-tf="30">30m</button>
       <button type="button" data-tf="60">1h</button>
+      <button type="button" data-tf="240">4h</button>
+      <button type="button" data-tf="D">1D</button>
     </div>
-    <div class="notice" id="notice">បើក browser alerts ដើម្បីទទួលបាន signal ពេលតម្លៃកាត់ level</div>
+    <div class="tf-bar" id="styleBar">
+      <button type="button" class="on" data-st="1">Candle</button>
+      <button type="button" data-st="8">Heikin Ashi</button>
+      <button type="button" data-st="2">Line</button>
+    </div>
+    <div class="notice" id="notice">បើក browser alerts ដើម្បីទទួលបាន signal ពេលមាន signal ពី indicator</div>
     <div class="status-row">
       <div class="stat-card">
         <div class="label">Feed</div>
@@ -276,7 +286,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
         <button type="button" class="clear" onclick="clearAlerts()">Clear all</button>
       </div>
       <div id="alertsList"></div>
-      <p class="hint">Signal នឹងបង្ហាញនៅទីនេះ ពេលតម្លៃកាត់ level</p>
+      <p class="hint">Signal នឹងបង្ហាញនៅទីនេះ ពេលមាន signal ពី indicator</p>
     </div>
   </aside>
 </div>
@@ -400,8 +410,15 @@ function enterApp(){
 /* ========== Chart ========== */
 let symbol = 'OANDA:XAUUSD';
 let interval = '15';
+let chartStyle = '1';                    // 1 = Candle, 8 = Heikin Ashi, 2 = Line
+try{ const s = localStorage.getItem('goldfx_style'); if(['1','8','2'].includes(s)) chartStyle = s; }catch(e){}
 let chartReady = false;
+function syncBars(){
+  document.querySelectorAll('#tfBar button').forEach(b => b.classList.toggle('on', b.dataset.tf === interval));
+  document.querySelectorAll('#styleBar button').forEach(b => b.classList.toggle('on', b.dataset.st === chartStyle));
+}
 function loadChart(){
+  syncBars();
   const el = document.getElementById('tv_chart');
   if(!el) return;
   el.innerHTML = '';
@@ -420,7 +437,7 @@ function loadChart(){
       interval: interval,
       timezone: 'Asia/Phnom_Penh',
       theme: 'dark',
-      style: '1',
+      style: chartStyle,
       locale: 'en',
       toolbar_bg: '#0c121c',
       enable_publishing: false,
@@ -448,11 +465,16 @@ function loadChart(){
     document.getElementById('feedStatus').style.color = 'var(--red)';
   }
 }
+document.getElementById('styleBar').addEventListener('click', e => {
+  const b = e.target.closest('button[data-st]');
+  if(!b) return;
+  chartStyle = b.dataset.st;
+  try{ localStorage.setItem('goldfx_style', chartStyle); }catch(e){}
+  loadChart();
+});
 document.getElementById('tfBar').addEventListener('click', e => {
   const b = e.target.closest('button[data-tf]');
   if(!b) return;
-  document.querySelectorAll('#tfBar button').forEach(x => x.classList.remove('on'));
-  b.classList.add('on');
   interval = b.dataset.tf;
   loadChart();
   startLive();
@@ -472,17 +494,15 @@ document.querySelectorAll('.side-tabs button').forEach(b => {
 /* ========== Real market feed + levels + signals ========== */
 // Real prices from Binance public API. XAU uses PAXG (gold-backed token, tracks spot gold).
 const FEED_SYM = 'PAXGUSDT';
-const TF_MAP = { '5':'5m', '15':'15m', '60':'1h' };
+const TF_MAP = { '1':'1m', '5':'5m', '15':'15m', '30':'30m', '60':'1h', '240':'4h', 'D':'1d' };
 // Try own server proxy first (fast, cached, not blocked), then public Binance mirrors.
 const BASES = ['/api/mkt/', 'https://data-api.binance.vision/api/v3/', 'https://api.binance.com/api/v3/'];
 let baseIdx = 0;
-const LEN = 50, RNG = 1.0;              // same params as the Pine indicator
 const COOLDOWN = 15 * 60 * 1000;        // per-signal cooldown (15 min)
 let ALERTS_ON = false;                  // permanently disabled
-const FREE_TAGS = ['UP1', 'DN1'];       // free plan gets range breaks UP1/DN1; Pro gets all levels
 
 let BASE = 0;                           // last live price
-let LEVELS = null;                      // {up1..dn3, mean, open}
+let feedReady = false;                  // klines loaded
 let prevPrice = null;
 let lastFire = {};
 let liveTimer = null, levelTimer = null, feedSeq = 0;
@@ -514,22 +534,6 @@ function setFeed(ok, sub){
   st.textContent = ok ? '● LIVE' : '● OFFLINE';
   st.style.color = ok ? 'var(--green)' : 'var(--red)';
   if(sub) document.getElementById('feedSub').textContent = sub;
-}
-
-function buildLevels(price){
-  const L = LEVELS;
-  if(!L) return [];
-  return [
-    {tag:'UP3', price:L.up3, cls:'up'},
-    {tag:'UP2', price:L.up2, cls:'up'},
-    {tag:'UP1', price:L.up1, cls:'up'},
-    {tag:'LIVE', price:price, cls:'live'},
-    {tag:'MEAN', price:L.mean, cls:'mid'},
-    {tag:'OPEN', price:L.open, cls:'mid'},
-    {tag:'DN1', price:L.dn1, cls:'dn'},
-    {tag:'DN2', price:L.dn2, cls:'dn'},
-    {tag:'DN3', price:L.dn3, cls:'dn'},
-  ].sort((a,b) => b.price - a.price);
 }
 
 let _lastShown = 0;
@@ -697,21 +701,6 @@ function renderIndicators_removed(kl){
 }
 
 
-// Same maths as the Pine script: SMA(close,50), highest/lowest(50), 0.25/0.5/0.75 of range
-function computeLevels(kl, dayOpen){
-  const w = kl.slice(-LEN);
-  const closes = w.map(k => +k[4]);
-  const mean = closes.reduce((a,b) => a+b, 0) / closes.length;
-  const hi = Math.max(...w.map(k => +k[2]));
-  const lo = Math.min(...w.map(k => +k[3]));
-  const r = (hi - lo) * RNG;
-  return {
-    mean, open: dayOpen,
-    up1: mean + r*.25, up2: mean + r*.50, up3: mean + r*.75,
-    dn1: mean - r*.25, dn2: mean - r*.50, dn3: mean - r*.75,
-  };
-}
-
 // Market drive = real taker-buy share of volume over the last 20 candles
 function renderDrive(kl){
   const w = kl.slice(-20);
@@ -731,12 +720,9 @@ async function refreshLevels(seq){
   const sym = feedSymbol();
   const tf = TF_MAP[interval] || '15m';
   try{
-    const [kl, day] = await Promise.all([
-      bget(`klines?symbol=${sym}&interval=${tf}&limit=${Math.max(LEN+5, 60)}`),
-      bget(`klines?symbol=${sym}&interval=1d&limit=1`),
-    ]);
+    const kl = await bget(`klines?symbol=${sym}&interval=${tf}&limit=60`);
     if(seq !== feedSeq) return;              // pair/timeframe changed meanwhile
-    LEVELS = computeLevels(kl, +day[0][1]);
+    feedReady = true;
     renderDrive(kl);
     /* indicators removed */
     if(BASE) renderLevels(BASE);
@@ -744,7 +730,7 @@ async function refreshLevels(seq){
   }catch(e){
     if(seq === feedSeq){
       setFeed(false, 'Feed error · retrying');
-      setTimeout(() => { if(seq === feedSeq && !LEVELS) refreshLevels(seq); }, 3000);
+      setTimeout(() => { if(seq === feedSeq && !feedReady) refreshLevels(seq); }, 3000);
     }
   }
 }
@@ -776,7 +762,7 @@ function startLive(){
   clearInterval(liveTimer); clearInterval(levelTimer);
   feedSeq++;
   const seq = feedSeq;
-  BASE = 0; LEVELS = null; prevPrice = null; lastFire = {};
+  BASE = 0; feedReady = false; prevPrice = null; lastFire = {};
   renderLevels(0);
   tickPrice(seq);
   refreshLevels(seq);
@@ -791,7 +777,7 @@ function renderAlerts(){
   const list = loadAlerts();
   const el = document.getElementById('alertsList');
   if(!list.length){
-    el.innerHTML = '<p class="hint">មិនទាន់មាន alert · signal នឹងបង្ហាញនៅទីនេះ ពេលតម្លៃកាត់ level</p>';
+    el.innerHTML = '<p class="hint">មិនទាន់មាន alert · signal នឹងបង្ហាញនៅទីនេះ ពេលមាន signal ពី indicator</p>';
   } else {
     el.innerHTML = list.map(a => `
       <div class="alert-item ${a.new?'new':''}">
@@ -1101,6 +1087,7 @@ api('config').then(c => {
   }
   if(c.chart_symbol){ try{ symbol = c.chart_symbol; }catch(e){} }
   if(c.default_tf){ try{ interval = String(c.default_tf); }catch(e){} }
+  if(c.default_style && !localStorage.getItem('goldfx_style')){ try{ chartStyle = String(c.default_style); }catch(e){} }
 }).catch(()=>{});
 
 api('me').then(r => {
