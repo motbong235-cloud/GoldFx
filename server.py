@@ -312,6 +312,7 @@ def public_config():
             "alerts_enabled": False,
             "chat_enabled": str(st.get("CHAT_ENABLED", "1")) != "0",
             "default_tf": st.get("DEFAULT_TF") or "15",
+            "default_style": st.get("DEFAULT_CANDLE_STYLE") or "1",
             "chart_symbol": st.get("CHART_SYMBOL") or "OANDA:XAUUSD",
         }
     )
@@ -684,6 +685,7 @@ def admin_settings():
         "SIGNAL_SYMBOLS",
         "CHAT_ENABLED",
         "DEFAULT_TF",
+        "DEFAULT_CANDLE_STYLE",
         "CHART_SYMBOL",
         
     ]
