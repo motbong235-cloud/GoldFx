@@ -1,0 +1,72 @@
+//@version=5
+indicator("Gold Fx Signal · Entry / TP / SL", overlay=true, max_lines_count=300, max_labels_count=300)
+
+// ===== Inputs =====
+swingLen = input.int(10, "Swing length", minval=2)
+slBuf    = input.float(0.5, "SL buffer (price)", minval=0.0, step=0.1)
+rr1      = input.float(1.0, "TP1 (R)", minval=0.1, step=0.25)
+rr2      = input.float(2.0, "TP2 (R)", minval=0.1, step=0.25)
+lineLen  = input.int(40, "Line length (bars)", minval=5)
+showLiq  = input.bool(true, "Show BSL / SSL line")
+
+// ===== Liquidity (swing high / low) =====
+ph = ta.pivothigh(high, swingLen, swingLen)
+pl = ta.pivotlow(low, swingLen, swingLen)
+
+var float lastHigh    = na
+var int   lastHighBar = na
+var bool  highSwept   = true
+var float lastLow     = na
+var int   lastLowBar  = na
+var bool  lowSwept    = true
+
+if not na(ph)
+    lastHigh    := ph
+    lastHighBar := bar_index - swingLen
+    highSwept   := false
+if not na(pl)
+    lastLow     := pl
+    lastLowBar  := bar_index - swingLen
+    lowSwept    := false
+
+// ===== Signal: sweep the liquidity, then close back inside (candle closed) =====
+sellSig = barstate.isconfirmed and not highSwept and not na(lastHigh) and high > lastHigh and close < lastHigh
+buySig  = barstate.isconfirmed and not lowSwept  and not na(lastLow)  and low  < lastLow  and close > lastLow
+
+// ===== Draw Entry / SL / TP1 / TP2 =====
+drawLevel(float price, string name, color col, bool dashed) =>
+    line.new(bar_index, price, bar_index + lineLen, price, color=col, style=dashed ? line.style_dashed : line.style_solid)
+    label.new(bar_index + lineLen, price, name + ": " + str.tostring(price, format.mintick), style=label.style_none, textcolor=col, size=size.normal)
+    true
+
+if sellSig
+    highSwept := true
+    entry = close
+    sl    = high + slBuf
+    risk  = sl - entry
+    drawLevel(sl, "SL", color.red, false)
+    drawLevel(entry, "Entry", color.gray, true)
+    drawLevel(entry - risk * rr1, "TP 1", color.blue, true)
+    drawLevel(entry - risk * rr2, "TP 2", color.blue, true)
+    if showLiq
+        line.new(lastHighBar, lastHigh, bar_index, lastHigh, color=color.new(color.gray, 20))
+        label.new(bar_index, lastHigh, "BSL $$$", style=label.style_none, textcolor=color.gray, size=size.small)
+
+if buySig
+    lowSwept := true
+    entry = close
+    sl    = low - slBuf
+    risk  = entry - sl
+    drawLevel(sl, "SL", color.red, false)
+    drawLevel(entry, "Entry", color.gray, true)
+    drawLevel(entry + risk * rr1, "TP 1", color.blue, true)
+    drawLevel(entry + risk * rr2, "TP 2", color.blue, true)
+    if showLiq
+        line.new(lastLowBar, lastLow, bar_index, lastLow, color=color.new(color.gray, 20))
+        label.new(bar_index, lastLow, "SSL $$$", style=label.style_none, textcolor=color.gray, size=size.small)
+
+plotshape(sellSig, "SELL", shape.labeldown, location.abovebar, color.red,   text="SELL", textcolor=color.white, size=size.tiny)
+plotshape(buySig,  "BUY",  shape.labelup,   location.belowbar, color.green, text="BUY",  textcolor=color.white, size=size.tiny)
+
+alertcondition(sellSig, "Gold Fx SELL", "SELL {{ticker}} {{interval}} @ {{close}}")
+alertcondition(buySig,  "Gold Fx BUY",  "BUY {{ticker}} {{interval}} @ {{close}}")
