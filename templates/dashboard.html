@@ -462,7 +462,7 @@ function syncBars(){
 }
 
 /* ========== Signal chart (Entry / SL / TP1 / TP2 on the dashboard) ========== */
-const SIG = { swing: 10, slBuf: 0.5, rr1: 1, rr2: 2, len: 40, maxShown: 6, et2: 0.78, keyLen: 16 };   // et2 = Et 2 sits at 78% of the way from SL to Et 1
+const SIG = { swing: 10, slBuf: 0.5, rr1: 1, rr2: 2, len: 40, maxShown: 15, et2: 0.78, keyLen: 16, txtOff: 4 };   // et2 = Et 2 sits at 78% of the way from SL to Et 1
 let viewMode = 'signal';                 // 'signal' | 'tv'
 try{ const v = localStorage.getItem('goldfx_view'); if(v === 'tv' || v === 'signal') viewMode = v; }catch(e){}
 let KL = [];                             // klines of the current timeframe
@@ -510,11 +510,12 @@ function findSignals(bars){
     if(!highSwept && lastHigh !== null && b.h > lastHigh && b.c < lastHigh){
       highSwept = true;
       const entry = b.c, sl = b.h + SIG.slBuf, risk = sl - entry;
-      out.push({ side:'SELL', i, t:b.t, entry, et2: sl - risk*SIG.et2, sl, tp1: entry - risk*SIG.rr1, tp2: entry - risk*SIG.rr2, liq: lastHigh, liqT: closed[lastHighIdx].t });
-    } else if(!lowSwept && lastLow !== null && b.l < lastLow && b.c > lastLow){
+      out.push({ side:'SELL', i, t:b.t, entry, et2: sl - risk*SIG.et2, sl, tp1: entry - risk*SIG.rr1, tp2: entry - risk*SIG.rr2, liq: lastHigh, liqT: closed[lastHighIdx].t, liqIdx: lastHighIdx });
+    }
+    if(!lowSwept && lastLow !== null && b.l < lastLow && b.c > lastLow){
       lowSwept = true;
       const entry = b.c, sl = b.l - SIG.slBuf, risk = entry - sl;
-      out.push({ side:'BUY', i, t:b.t, entry, et2: sl + risk*SIG.et2, sl, tp1: entry + risk*SIG.rr1, tp2: entry + risk*SIG.rr2, liq: lastLow, liqT: closed[lastLowIdx].t });
+      out.push({ side:'BUY', i, t:b.t, entry, et2: sl + risk*SIG.et2, sl, tp1: entry + risk*SIG.rr1, tp2: entry + risk*SIG.rr2, liq: lastLow, liqT: closed[lastLowIdx].t, liqIdx: lastLowIdx });
     }
   }
   // outcome: walk forward until SL or TP2 is touched
@@ -583,7 +584,10 @@ function paintOverlay(){
   g.clearRect(0, 0, w, h);
   if(!o.sigs.length) return;
   const C = themeColors(), ts = o.chart.timeScale(), main = o.main;
-  const X = t => ts.timeToCoordinate(t), Y = p => main.priceToCoordinate(p);
+  const X = idx => ts.logicalToCoordinate(idx), Y = p => main.priceToCoordinate(p);   // logical index → works for future bars too
+  const bs = ts.options().barSpacing || 6;
+  let pw = 0; try{ pw = o.chart.priceScale('right').width(); }catch(e){}
+  g.save(); g.beginPath(); g.rect(0, 0, Math.max(0, w - pw), Math.max(0, h - 26)); g.clip();   // keep inside plot area
   const fs = Math.max(12, Math.min(16, Math.round(w / 30)));
   g.font = '500 ' + fs + 'px Inter, system-ui, sans-serif';
   const label = (txt, x, y, color, align, dy) => {
@@ -600,17 +604,22 @@ function paintOverlay(){
   };
   for(const s of o.sigs){
     const sell = s.side === 'SELL';
-    const xc = X(s.t);
-    const cx = xc === null ? null : xc + 8;                  // text is centred just right of the signal candle
+    const xc = X(s.i);                                       // signal candle
+    const cx = X(s.i + SIG.txtOff);                          // Pine: label at bar_index + txtOff, text centred on the price
     label('TP 2: ' + s.tp2.toFixed(2) + (s.result === 'tp2' ? ' ✓' : ''), cx, Y(s.tp2), C.tp);
     label('TP 1: ' + s.tp1.toFixed(2) + (s.hit1 ? ' ✓' : ''),              cx, Y(s.tp1), C.tp);
     label('Et 1: ' + s.entry.toFixed(2), cx, Y(s.entry), C.entry);
     label('Et 2: ' + s.et2.toFixed(2),   cx, Y(s.et2),   C.entry);
     label('SL: ' + s.sl.toFixed(2),      cx, Y(s.sl),    C.sl);
-    // key (liquidity) line label at the right end of the line + yellow sun on the signal candle
-    label(sell ? 'BSL $$$ 💵' : 'Key 🔑', X(s.liqEndT), Y(s.liq), C.liq, 'right', -14);
-    sun(xc, Y(s.liq));
+    // key line: from the swing candle to signal + keyLen bars, 2px, text above the right end, sun on the signal candle
+    const ly = Y(s.liq), x1 = X(s.liqIdx), x2 = X(s.i + SIG.keyLen);
+    if(ly !== null && x1 !== null && x2 !== null){
+      g.beginPath(); g.moveTo(x1, ly); g.lineTo(x2, ly); g.strokeStyle = C.liq; g.lineWidth = 2; g.stroke();
+    }
+    label(sell ? 'BSL $$$ 💵' : 'Key 🔑', x2, ly, C.liq, 'center', -14);
+    sun(xc, ly);
   }
+  g.restore();
 }
 function drawSignalChart(){
   if(!lw || !KL.length) return;
@@ -634,16 +643,26 @@ function drawSignalChart(){
   sigs.slice(-SIG.maxShown).forEach(s => {
     s.endT = s.endIdx !== null ? closed[s.endIdx].t : s.t + SIG.len * sec;
     s.hit1T = (s.hit1Idx !== undefined && s.hit1Idx !== null) ? closed[s.hit1Idx].t : null;
-    s.liqEndT = s.t + SIG.keyLen * sec;
-    if(s.liqT < s.t){
-      const ls = chart.addLineSeries({ color:C.liq, lineWidth:2, lastValueVisible:false, priceLineVisible:false, crosshairMarkerVisible:false });
-      ls.setData([{ time:s.liqT, value:s.liq }, { time:s.liqEndT, value:s.liq }]);
-      lw.extras.push(ls);
-    }
     lw.sigs.push(s);
   });
   if(!lw.fitted){ chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 90), to: bars.length + 14 }); lw.fitted = true; }
 }
+// Admin saves the Pine code → chart reads its input() defaults (same names as the Pine script)
+async function loadIndicatorParams(){
+  try{
+    const r = await fetch('/api/indicator', {credentials:'same-origin'}).then(x => x.json());
+    const code = (r && r.code) || '';
+    if(!code) return;
+    const map = { swingLen:'swing', slBuf:'slBuf', rr1:'rr1', rr2:'rr2', et2Pct:'et2', keyLen:'keyLen', txtOff:'txtOff' };
+    let changed = false;
+    for(const [pn, key] of Object.entries(map)){
+      const m = code.match(new RegExp('\\b' + pn + '\\s*=\\s*input\\.(?:int|float)\\(\\s*(-?[\\d.]+)'));
+      if(m && isFinite(+m[1]) && SIG[key] !== +m[1]){ SIG[key] = +m[1]; changed = true; }
+    }
+    if(changed && viewMode === 'signal'){ if(lw){ lw.fitted = true; } drawSignalChart(); }
+  }catch(e){}
+}
+loadIndicatorParams();
 function loadSignalChart(){
   const el = document.getElementById('tv_chart');
   if(!el) return;
