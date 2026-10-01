@@ -9,6 +9,7 @@
 <link rel="icon" type="image/jpeg" href="/static/logo-icon.jpg">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://s3.tradingview.com/tv.js"></script>
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <style>
 :root{
   --bg:#060a11;--panel:#0c121c;--card:#121a28;--elev:#182234;
@@ -252,6 +253,10 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
       <button type="button" data-tf="240">4h</button>
       <button type="button" data-tf="D">1D</button>
     </div>
+    <div class="tf-bar" id="viewBar">
+      <button type="button" class="on" data-view="signal">Signal · TP/SL</button>
+      <button type="button" data-view="tv">TradingView</button>
+    </div>
     <div class="tf-bar" id="styleBar">
       <button type="button" class="on" data-st="1">Candle</button>
       <button type="button" data-st="8">Heikin Ashi</button>
@@ -416,9 +421,154 @@ let chartReady = false;
 function syncBars(){
   document.querySelectorAll('#tfBar button').forEach(b => b.classList.toggle('on', b.dataset.tf === interval));
   document.querySelectorAll('#styleBar button').forEach(b => b.classList.toggle('on', b.dataset.st === chartStyle));
+  document.querySelectorAll('#viewBar button').forEach(b => b.classList.toggle('on', b.dataset.view === viewMode));
+  const sb = document.getElementById('styleBar'); if(sb) sb.style.display = '';
+}
+
+/* ========== Signal chart (Entry / SL / TP1 / TP2 on the dashboard) ========== */
+const SIG = { swing: 10, slBuf: 0.5, rr1: 1, rr2: 2, len: 40, maxShown: 6 };
+let viewMode = 'signal';                 // 'signal' | 'tv'
+try{ const v = localStorage.getItem('goldfx_view'); if(v === 'tv' || v === 'signal') viewMode = v; }catch(e){}
+let KL = [];                             // klines of the current timeframe
+let lw = null;                           // {chart, main, extras:[]}
+const TZ_OFF = 7 * 3600;                 // Asia/Phnom_Penh (lightweight-charts shows UTC)
+
+function ivSeconds(){
+  const m = { '1':60, '5':300, '15':900, '30':1800, '60':3600, '240':14400, 'D':86400 };
+  return m[interval] || 900;
+}
+function toBars(kl){
+  return kl.map(k => ({ t: Math.floor(k[0]/1000) + TZ_OFF, o:+k[1], h:+k[2], l:+k[3], c:+k[4], closeMs:+k[6] }));
+}
+function heikin(bars){
+  const out = []; let po = null, pc = null;
+  for(const b of bars){
+    const c = (b.o + b.h + b.l + b.c) / 4;
+    const o = po === null ? (b.o + b.c) / 2 : (po + pc) / 2;
+    out.push({ time: b.t, open:o, high:Math.max(b.h, o, c), low:Math.min(b.l, o, c), close:c });
+    po = o; pc = c;
+  }
+  return out;
+}
+// Same logic as the Pine indicator: sweep a swing high/low, candle closes back inside → signal
+function findSignals(bars){
+  const L = SIG.swing, out = [];
+  let lastHigh = null, lastHighIdx = -1, highSwept = true;
+  let lastLow = null, lastLowIdx = -1, lowSwept = true;
+  const closed = bars.filter(b => b.closeMs < Date.now());       // closed candles only
+  for(let i = 0; i < closed.length; i++){
+    const p = i - L;
+    if(p >= L){
+      let isH = true, isL = true;
+      for(let j = p - L; j <= p + L; j++){
+        if(j === p) continue;
+        if(closed[j].h > closed[p].h) isH = false;
+        if(closed[j].l < closed[p].l) isL = false;
+      }
+      if(isH){ lastHigh = closed[p].h; lastHighIdx = p; highSwept = false; }
+      if(isL){ lastLow  = closed[p].l; lastLowIdx  = p; lowSwept  = false; }
+    }
+    const b = closed[i];
+    if(!highSwept && lastHigh !== null && b.h > lastHigh && b.c < lastHigh){
+      highSwept = true;
+      const entry = b.c, sl = b.h + SIG.slBuf, risk = sl - entry;
+      out.push({ side:'SELL', i, t:b.t, entry, sl, tp1: entry - risk*SIG.rr1, tp2: entry - risk*SIG.rr2, liq: lastHigh, liqT: closed[lastHighIdx].t });
+    } else if(!lowSwept && lastLow !== null && b.l < lastLow && b.c > lastLow){
+      lowSwept = true;
+      const entry = b.c, sl = b.l - SIG.slBuf, risk = entry - sl;
+      out.push({ side:'BUY', i, t:b.t, entry, sl, tp1: entry + risk*SIG.rr1, tp2: entry + risk*SIG.rr2, liq: lastLow, liqT: closed[lastLowIdx].t });
+    }
+  }
+  // outcome: walk forward until SL or TP2 is touched
+  for(const s of out){
+    s.hit1 = false; s.endIdx = null; s.result = 'open';
+    for(let j = s.i + 1; j < closed.length; j++){
+      const b = closed[j];
+      const sell = s.side === 'SELL';
+      const slHit = sell ? b.h >= s.sl : b.l <= s.sl;
+      const t1Hit = sell ? b.l <= s.tp1 : b.h >= s.tp1;
+      const t2Hit = sell ? b.l <= s.tp2 : b.h >= s.tp2;
+      if(t1Hit) s.hit1 = true;
+      if(slHit){ s.endIdx = j; s.result = s.hit1 ? 'tp1' : 'sl'; break; }
+      if(t2Hit){ s.endIdx = j; s.result = 'tp2'; break; }
+    }
+  }
+  return { sigs: out, closed };
+}
+function lwDestroy(){
+  if(lw){ try{ lw.chart.remove(); }catch(e){} lw = null; }
+}
+function lwCreate(el){
+  lwDestroy();
+  el.innerHTML = '';
+  const chart = LightweightCharts.createChart(el, {
+    autoSize: true,
+    layout: { background:{ type:'solid', color:'#0b1220' }, textColor:'#8b9cb3', fontFamily:'Inter, system-ui, sans-serif' },
+    grid: { vertLines:{ color:'rgba(148,163,184,.06)' }, horzLines:{ color:'rgba(148,163,184,.06)' } },
+    rightPriceScale: { borderColor:'rgba(148,163,184,.15)' },
+    timeScale: { borderColor:'rgba(148,163,184,.15)', timeVisible:true, secondsVisible:false, rightOffset:12 },
+    crosshair: { mode: 0 },
+  });
+  lw = { chart, main:null, extras:[] };
+}
+function drawSignalChart(){
+  if(!lw || !KL.length) return;
+  const { chart } = lw;
+  if(lw.main){ try{ chart.removeSeries(lw.main); }catch(e){} lw.main = null; }
+  lw.extras.forEach(s => { try{ chart.removeSeries(s); }catch(e){} });
+  lw.extras = [];
+  const bars = toBars(KL);
+  if(chartStyle === '2'){
+    lw.main = chart.addLineSeries({ color:'#fbbf24', lineWidth:2 });
+    lw.main.setData(bars.map(b => ({ time:b.t, value:b.c })));
+  } else {
+    lw.main = chart.addCandlestickSeries({
+      upColor:'#34d399', downColor:'#f87171', borderUpColor:'#34d399', borderDownColor:'#f87171', wickUpColor:'#34d399', wickDownColor:'#f87171',
+    });
+    lw.main.setData(chartStyle === '8' ? heikin(bars) : bars.map(b => ({ time:b.t, open:b.o, high:b.h, low:b.l, close:b.c })));
+  }
+  const { sigs, closed } = findSignals(bars);
+  const sec = ivSeconds();
+  const markers = [];
+  sigs.slice(-SIG.maxShown).forEach(s => {
+    const endT = s.endIdx !== null ? closed[s.endIdx].t : s.t + SIG.len * sec;
+    const sell = s.side === 'SELL';
+    markers.push({ time:s.t, position: sell ? 'aboveBar' : 'belowBar', shape: sell ? 'arrowDown' : 'arrowUp', color: sell ? '#f87171' : '#34d399', text: s.side });
+    const seg = (price, color, text, dashed) => {
+      const ls = chart.addLineSeries({ color, lineWidth:1, lineStyle: dashed ? 2 : 0, lastValueVisible:false, priceLineVisible:false, crosshairMarkerVisible:false });
+      ls.setData([{ time:s.t, value:price }, { time:endT, value:price }]);
+      ls.setMarkers([{ time:endT, position:'inBar', shape:'circle', color, size:1, text: text + ': ' + price.toFixed(2) }]);
+      lw.extras.push(ls);
+    };
+    seg(s.sl,    '#f87171', 'SL', false);
+    seg(s.entry, '#9aa7ba', 'Entry', true);
+    seg(s.tp1,   '#60a5fa', 'TP 1' + (s.hit1 ? ' ✓' : ''), true);
+    seg(s.tp2,   '#60a5fa', 'TP 2' + (s.result === 'tp2' ? ' ✓' : ''), true);
+    if(s.liqT < s.t){
+      const ls = chart.addLineSeries({ color:'rgba(154,167,186,.7)', lineWidth:1, lastValueVisible:false, priceLineVisible:false, crosshairMarkerVisible:false });
+      ls.setData([{ time:s.liqT, value:s.liq }, { time:s.t, value:s.liq }]);
+      ls.setMarkers([{ time:s.liqT, position:'inBar', shape:'circle', color:'#9aa7ba', size:1, text: sell ? 'BSL $$$' : 'SSL $$$' }]);
+      lw.extras.push(ls);
+    }
+  });
+  markers.sort((a,b) => a.time - b.time);
+  if(lw.main.setMarkers) lw.main.setMarkers(markers);
+  if(!lw.fitted){ chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 90), to: bars.length + 14 }); lw.fitted = true; }
+}
+function loadSignalChart(){
+  const el = document.getElementById('tv_chart');
+  if(!el) return;
+  if(typeof LightweightCharts === 'undefined'){
+    el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Signal chart failed to load · ប្តូរទៅ TradingView</div>';
+    return;
+  }
+  lwCreate(el);
+  if(KL.length) drawSignalChart();
 }
 function loadChart(){
   syncBars();
+  if(viewMode === 'signal'){ loadSignalChart(); return; }
+  lwDestroy();
   const el = document.getElementById('tv_chart');
   if(!el) return;
   el.innerHTML = '';
@@ -465,6 +615,14 @@ function loadChart(){
     document.getElementById('feedStatus').style.color = 'var(--red)';
   }
 }
+document.getElementById('viewBar').addEventListener('click', e => {
+  const b = e.target.closest('button[data-view]');
+  if(!b) return;
+  viewMode = b.dataset.view;
+  try{ localStorage.setItem('goldfx_view', viewMode); }catch(e){}
+  loadChart();
+  if(viewMode === 'signal') startLive();
+});
 document.getElementById('styleBar').addEventListener('click', e => {
   const b = e.target.closest('button[data-st]');
   if(!b) return;
@@ -476,6 +634,7 @@ document.getElementById('tfBar').addEventListener('click', e => {
   const b = e.target.closest('button[data-tf]');
   if(!b) return;
   interval = b.dataset.tf;
+  KL = [];
   loadChart();
   startLive();
 });
@@ -720,9 +879,11 @@ async function refreshLevels(seq){
   const sym = feedSymbol();
   const tf = TF_MAP[interval] || '15m';
   try{
-    const kl = await bget(`klines?symbol=${sym}&interval=${tf}&limit=60`);
+    const kl = await bget(`klines?symbol=${sym}&interval=${tf}&limit=300`);
     if(seq !== feedSeq) return;              // pair/timeframe changed meanwhile
     feedReady = true;
+    KL = kl;
+    if(viewMode === 'signal') drawSignalChart();
     renderDrive(kl);
     /* indicators removed */
     if(BASE) renderLevels(BASE);
@@ -762,12 +923,12 @@ function startLive(){
   clearInterval(liveTimer); clearInterval(levelTimer);
   feedSeq++;
   const seq = feedSeq;
-  BASE = 0; feedReady = false; prevPrice = null; lastFire = {};
+  BASE = 0; feedReady = false; KL = []; prevPrice = null; lastFire = {};
   renderLevels(0);
   tickPrice(seq);
   refreshLevels(seq);
   liveTimer  = setInterval(() => tickPrice(seq), 3000);
-  levelTimer = setInterval(() => refreshLevels(seq), 30000);
+  levelTimer = setInterval(() => refreshLevels(seq), 10000);
 }
 // Pause when tab hidden, resume when visible
 document.addEventListener('visibilitychange', () => { if(!document.hidden && CURRENT) startLive(); });
