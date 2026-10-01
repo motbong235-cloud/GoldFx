@@ -258,6 +258,10 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
       <button type="button" data-view="tv">TradingView</button>
       <button type="button" id="themeBtn">☀ Light</button>
     </div>
+    <div class="tf-bar" id="srcBar">
+      <button type="button" data-sym="FOREXCOM:XAUUSD">XAUUSD · FOREX.com</button>
+      <button type="button" data-sym="FXCM:XAUUSD">XAUUSD · FXCM</button>
+    </div>
     <div class="tf-bar" id="styleBar">
       <button type="button" class="on" data-st="1">Candle</button>
       <button type="button" data-st="8">Heikin Ashi</button>
@@ -414,7 +418,8 @@ function enterApp(){
 }
 
 /* ========== Chart ========== */
-let symbol = 'OANDA:XAUUSD';
+let symbol = 'FOREXCOM:XAUUSD';          // FOREXCOM:XAUUSD (FOREX.com) | FXCM:XAUUSD (FXCM)
+try{ const s = localStorage.getItem('goldfx_sym'); if(s === 'FOREXCOM:XAUUSD' || s === 'FXCM:XAUUSD') symbol = s; }catch(e){}
 let interval = '15';
 let chartStyle = '1';                    // 1 = Candle, 8 = Heikin Ashi, 2 = Line
 try{ const s = localStorage.getItem('goldfx_style'); if(['1','8','2'].includes(s)) chartStyle = s; }catch(e){}
@@ -422,6 +427,7 @@ let chartReady = false;
 function syncBars(){
   document.querySelectorAll('#tfBar button').forEach(b => b.classList.toggle('on', b.dataset.tf === interval));
   document.querySelectorAll('#styleBar button').forEach(b => b.classList.toggle('on', b.dataset.st === chartStyle));
+  document.querySelectorAll('#srcBar button').forEach(b => b.classList.toggle('on', b.dataset.sym === symbol));
   document.querySelectorAll('#viewBar button').forEach(b => b.classList.toggle('on', b.dataset.view === viewMode));
   const tb = document.getElementById('themeBtn'); if(tb) tb.textContent = viewTheme === 'light' ? '☀ Light' : '🌙 Dark';
   const sb = document.getElementById('styleBar'); if(sb) sb.style.display = '';
@@ -688,6 +694,14 @@ document.getElementById('themeBtn').addEventListener('click', () => {
   viewTheme = viewTheme === 'light' ? 'dark' : 'light';
   try{ localStorage.setItem('goldfx_theme', viewTheme); }catch(e){}
   if(viewMode === 'signal') loadChart(); else syncBars();
+});
+document.getElementById('srcBar').addEventListener('click', e => {
+  const b = e.target.closest('button[data-sym]');
+  if(!b) return;
+  symbol = b.dataset.sym;
+  try{ localStorage.setItem('goldfx_sym', symbol); }catch(err){}
+  if(viewMode !== 'tv'){ viewMode = 'tv'; try{ localStorage.setItem('goldfx_view', 'tv'); }catch(err){} }
+  loadChart();
 });
 document.getElementById('viewBar').addEventListener('click', e => {
   const b = e.target.closest('button[data-view]');
@@ -1320,7 +1334,7 @@ api('config').then(c => {
   if(c.chat_enabled === false || c.chat_enabled === '0'){
     window.__CHAT_OFF = true;
   }
-  if(c.chart_symbol){ try{ symbol = c.chart_symbol; }catch(e){} }
+  if(c.chart_symbol && !localStorage.getItem('goldfx_sym')){ try{ symbol = c.chart_symbol; syncBars(); }catch(e){} }
   if(c.default_tf){ try{ interval = String(c.default_tf); }catch(e){} }
   if(c.default_style && !localStorage.getItem('goldfx_style')){ try{ chartStyle = String(c.default_style); }catch(e){} }
 }).catch(()=>{});

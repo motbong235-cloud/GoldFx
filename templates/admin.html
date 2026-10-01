@@ -308,7 +308,10 @@ th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase}
       </div>
       <div class="field">
         <label>Chart symbol (TradingView)</label>
-        <input id="s_CHART_SYMBOL" placeholder="OANDA:XAUUSD" value="OANDA:XAUUSD">
+        <select id="s_CHART_SYMBOL">
+          <option value="FOREXCOM:XAUUSD">XAUUSD · FOREX.com</option>
+          <option value="FXCM:XAUUSD">XAUUSD · FXCM</option>
+        </select>
       </div>
       <div class="field">
         <label>Browser Alerts</label>
@@ -499,8 +502,9 @@ async function load(){
 
   const set=r.settings||{};
   ['BAKONG_TOKEN','BAKONG_ID','BAKONG_CITY','BAKONG_CURRENCY','KHMER_MERCHANT_NAME','PRO_PRICE','SHOP_NAME','TELEGRAM','TELEGRAM_BOT','TG_BOT_TOKEN','SIGNAL_CHANNEL_ID','SIGNAL_TIMEFRAMES','SIGNAL_ENABLED','ALERTS_ENABLED','CHAT_ENABLED','DEFAULT_TF','DEFAULT_CANDLE_STYLE','CHART_SYMBOL','KHMER_PROFILE_KEY','KHMER_SECRET_KEY','KHMER_MACHINE_ID','INDICATOR_CODE','INDICATOR_ACCESS'].forEach(k=>{
-    const el=$('#s_'+k); if(el && document.activeElement!==el && !el.dataset.dirty) el.value = set[k]??(k==='SIGNAL_ENABLED'||k==='CHAT_ENABLED'?'1':(k==='ALERTS_ENABLED'?'0':(k==='DEFAULT_TF'?'15':(k==='DEFAULT_CANDLE_STYLE'?'1':(k==='CHART_SYMBOL'?'OANDA:XAUUSD':(k==='INDICATOR_ACCESS'?'all':''))))));
+    const el=$('#s_'+k); if(el && document.activeElement!==el && !el.dataset.dirty) el.value = set[k]??(k==='SIGNAL_ENABLED'||k==='CHAT_ENABLED'?'1':(k==='ALERTS_ENABLED'?'0':(k==='DEFAULT_TF'?'15':(k==='DEFAULT_CANDLE_STYLE'?'1':(k==='CHART_SYMBOL'?'FOREXCOM:XAUUSD':(k==='INDICATOR_ACCESS'?'all':''))))));
   });
+  { const cs=$('#s_CHART_SYMBOL'); if(cs && !cs.value) cs.value='FOREXCOM:XAUUSD'; }
   $('#s_ADMIN_PASSWORD').value = '';
   if(!(pineEl() && pineEl().dataset.dirty)){ pineSaved = set.INDICATOR_CODE || ''; }
   pineMeta();
