@@ -232,7 +232,7 @@ def market_proxy(p):
     if p == "klines":
         itv = a.get("interval") or "15m"
         try:
-            lim = max(1, min(100, int(a.get("limit") or 55)))
+            lim = max(1, min(500, int(a.get("limit") or 55)))
         except ValueError:
             lim = 55
         if itv not in _MKT_INTERVALS:
