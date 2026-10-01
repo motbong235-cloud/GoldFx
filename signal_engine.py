@@ -1,4 +1,4 @@
-"""Gold Fx signal engine: level-break → Telegram group with Entry / TP / SL.
+"""Gold Fx signal engine: liquidity sweep (same logic as goldfx_signal.pine / dashboard chart) → Telegram.
 
 Runs as a background thread inside server.py.
 Settings (Admin → Bakong · Settings / Signal):
@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
 import urllib.error
@@ -27,18 +28,17 @@ BASES = [
     "https://api2.binance.com/api/v3/",
 ]
 _good = 0
-LEN, RNG = 50, 1.0
-COOLDOWN = 5 * 60
-LEVEL_REFRESH = 180  # 3 min — levels stable enough to be crossed
-POLL_SEC = 5
+POLL_SEC = 10
+KL_REFRESH = 20          # seconds between kline refreshes per (symbol, timeframe)
+KL_LIMIT = 300
+MAX_AGE_BARS = 3         # only post a signal if its candle closed within the last N bars
 NAMES = {"PAXGUSDT": "XAUUSD", "XAUUSDT": "XAUUSD"}
+# Same defaults as the Pine indicator / dashboard (overridden by input() defaults in Admin → Indicator code)
+PARAMS = {"swingLen": 10, "slBuf": 0.5, "rr1": 1.0, "rr2": 2.0, "et2Pct": 0.78}
+TF_SEC = {"1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600, "2h": 7200, "4h": 14400, "1d": 86400}
 
 STATE = {"running": False, "last_sent": "", "last_error": "", "sent_count": 0, "last_price": "", "last_check": "", "last_levels": ""}
 _lock_fh = None
-
-# Level ladder order (low → high)
-LADDER = ("DN3", "DN2", "DN1", "MEAN", "UP1", "UP2", "UP3")
-
 
 def market(path: str, timeout: int = 6, budget: int | None = None, **_kwargs):
     """Fetch Binance public market data. `budget` = max mirrors to try (optional)."""
@@ -61,75 +61,83 @@ def market(path: str, timeout: int = 6, budget: int | None = None, **_kwargs):
     raise last if last else RuntimeError("market data unavailable")
 
 
-def compute_levels(kl):
-    """Levels from closed candles only (exclude last forming bar) so levels don't chase price."""
-    closed = kl[:-1] if len(kl) > LEN else kl
-    w = closed[-LEN:] if len(closed) >= LEN else closed
-    if len(w) < 10:
-        w = kl[-LEN:]
-    mean = sum(float(k[4]) for k in w) / len(w)
-    hi = max(float(k[2]) for k in w)
-    lo = min(float(k[3]) for k in w)
-    r = (hi - lo) * RNG
-    if r < 1e-9:
-        r = mean * 0.001
-    return {
-        "MEAN": mean,
-        "UP1": mean + r * 0.25,
-        "UP2": mean + r * 0.50,
-        "UP3": mean + r * 0.75,
-        "DN1": mean - r * 0.25,
-        "DN2": mean - r * 0.50,
-        "DN3": mean - r * 0.75,
-    }
+def load_params(settings: dict) -> dict:
+    """Read input() defaults from the admin's Pine code so chart, Pine and Telegram agree."""
+    p = dict(PARAMS)
+    code = str((settings or {}).get("INDICATOR_CODE") or "")
+    for name in p:
+        m = re.search(r"\b" + name + r"\s*=\s*input\.(?:int|float)\(\s*(-?[\d.]+)", code)
+        if m:
+            try:
+                p[name] = float(m.group(1))
+            except ValueError:
+                pass
+    p["swingLen"] = max(2, int(p["swingLen"]))
+    return p
 
 
-def _targets(levels: dict, tag: str, up: bool):
-    """Entry = broken level; TP1/TP2 next levels; SL opposite side."""
-    entry = levels[tag]
-    idx = LADDER.index(tag) if tag in LADDER else 3
-    if up:
-        tps = [levels[LADDER[i]] for i in range(idx + 1, min(idx + 3, len(LADDER)))]
-        sl_i = max(0, idx - 1)
-        sl = levels[LADDER[sl_i]]
-        side = "BUY"
-    else:
-        tps = [levels[LADDER[i]] for i in range(idx - 1, max(idx - 3, -1), -1)]
-        sl_i = min(len(LADDER) - 1, idx + 1)
-        sl = levels[LADDER[sl_i]]
-        side = "SELL"
-    while len(tps) < 2:
-        # fallback distance from range
-        step = abs(levels["UP1"] - levels["MEAN"]) or (entry * 0.001)
-        if up:
-            tps.append(entry + step * (len(tps) + 1))
-        else:
-            tps.append(entry - step * (len(tps) + 1))
-    return side, entry, tps[0], tps[1], sl
+def find_signals(kl, p: dict, now_ms: float | None = None):
+    """Liquidity sweep: swing high/low is taken, candle closes back inside → signal.
+    Mirrors goldfx_signal.pine and findSignals() in dashboard.html (closed candles only)."""
+    now_ms = now_ms or time.time() * 1000
+    closed = [k for k in kl if float(k[6]) < now_ms]
+    L = p["swingLen"]
+    out = []
+    last_high = last_low = None
+    hi_idx = lo_idx = -1
+    high_swept = low_swept = True
+    for i in range(len(closed)):
+        q = i - L
+        if q >= L:
+            is_h = is_l = True
+            qh, ql = float(closed[q][2]), float(closed[q][3])
+            for j in range(q - L, q + L + 1):
+                if j == q:
+                    continue
+                if float(closed[j][2]) > qh:
+                    is_h = False
+                if float(closed[j][3]) < ql:
+                    is_l = False
+            if is_h:
+                last_high, hi_idx, high_swept = qh, q, False
+            if is_l:
+                last_low, lo_idx, low_swept = ql, q, False
+        h, l, c = float(closed[i][2]), float(closed[i][3]), float(closed[i][4])
+        t = int(closed[i][0])
+        if not high_swept and last_high is not None and h > last_high and c < last_high:
+            high_swept = True
+            sl = h + p["slBuf"]
+            risk = sl - c
+            out.append({"side": "SELL", "i": i, "t": t, "close_ms": float(closed[i][6]), "liq": last_high,
+                        "entry": c, "et2": sl - risk * p["et2Pct"], "sl": sl,
+                        "tp1": c - risk * p["rr1"], "tp2": c - risk * p["rr2"]})
+        if not low_swept and last_low is not None and l < last_low and c > last_low:
+            low_swept = True
+            sl = l - p["slBuf"]
+            risk = c - sl
+            out.append({"side": "BUY", "i": i, "t": t, "close_ms": float(closed[i][6]), "liq": last_low,
+                        "entry": c, "et2": sl + risk * p["et2Pct"], "sl": sl,
+                        "tp1": c + risk * p["rr1"], "tp2": c + risk * p["rr2"]})
+    return out
 
 
-def format_signal(sym: str, tf: str, tag: str, up: bool, levels: dict, price: float) -> str:
+def format_signal(sym: str, tf: str, s: dict, price: float) -> str:
     name = NAMES.get(sym, sym)
-    side, entry, tp1, tp2, sl = _targets(levels, tag, up)
-    if up:
-        head = "🟢 ▲ BREAK"
-        emoji = "📈"
-    else:
-        head = "🔴 ▼ BREAK"
-        emoji = "📉"
-    rr = abs(tp1 - entry) / abs(entry - sl) if abs(entry - sl) > 1e-9 else 0
+    sell = s["side"] == "SELL"
+    head = "🔴 SELL" if sell else "🟢 BUY"
+    key = "BSL $$$ 💵" if sell else "Key 🔑"
     ict = time.strftime("%H:%M:%S", time.gmtime(time.time() + 7 * 3600))
     return (
-        f"{head} <b>{tag}</b> {emoji}\n"
-        f"<b>{name}</b> · {tf} · <b>{side}</b>\n"
+        f"{head} · <b>{name}</b> · {tf}\n"
         f"━━━━━━━━━━━━━━\n"
-        f"📍 Entry: <code>{entry:.2f}</code>\n"
-        f"🎯 TP1: <code>{tp1:.2f}</code>\n"
-        f"🎯 TP2: <code>{tp2:.2f}</code>\n"
-        f"🛡 SL: <code>{sl:.2f}</code>\n"
+        f"TP 2: <code>{s['tp2']:.2f}</code>\n"
+        f"TP 1: <code>{s['tp1']:.2f}</code>\n"
+        f"Et 1: <code>{s['entry']:.2f}</code>\n"
+        f"Et 2: <code>{s['et2']:.2f}</code>\n"
+        f"SL: <code>{s['sl']:.2f}</code>\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"{key} <code>{s['liq']:.2f}</code> (liquidity swept)\n"
         f"💰 Price: <code>{price:.2f}</code>\n"
-        f"📊 R:R ≈ 1:{rr:.1f}\n"
-        f"━━━━━━━━━━━━━━\n"
         f"⏰ {ict} (ICT) · Gold Fx Signal"
     )
 
@@ -176,64 +184,55 @@ def _cfg(get_settings):
 
 
 def _loop(get_settings):
-    levels, last_lvl, prev, fired = {}, {}, {}, {}
+    last_kl, seen = {}, {}
     STATE["running"] = True
     while True:
         try:
             tok, ch, on, syms, tfs = _cfg(get_settings)
+            params = load_params(get_settings())
         except Exception as e:
             STATE["last_error"] = f"settings: {e}"
             time.sleep(POLL_SEC)
             continue
         if not (tok and ch and on):
-            prev.clear()
+            seen.clear()      # re-seed when turned back on → no burst of old signals
             time.sleep(POLL_SEC)
             continue
         now = time.time()
         for sym in syms:
-            try:
-                for tf in tfs:
-                    k = (sym, tf)
-                    if now - last_lvl.get(k, 0) >= LEVEL_REFRESH:
-                        kl = market(f"klines?symbol={sym}&interval={tf}&limit={LEN + 5}")
-                        levels[k] = compute_levels(kl)
-                        last_lvl[k] = now
-                        L = levels[k]
-                        STATE["last_levels"] = (
-                            f"{sym} {tf} MEAN={L['MEAN']:.2f} "
-                            f"UP1={L['UP1']:.2f} DN1={L['DN1']:.2f}"
-                        )
-                # Same source as klines (PAXGUSDT) — do NOT blend spot APIs here
-                price = float(market(f"ticker/price?symbol={sym}")["price"])
-                p0 = prev.get(sym)
-                prev[sym] = price
-                STATE["last_price"] = f"{sym} {price:.2f}"
-                STATE["last_check"] = time.strftime("%H:%M:%S", time.gmtime(now + 7 * 3600))
-                if p0 is None:
+            for tf in tfs:
+                k = (sym, tf)
+                if now - last_kl.get(k, 0) < KL_REFRESH:
                     continue
-                for tf in tfs:
-                    lvmap = levels.get((sym, tf), {})
-                    if not lvmap:
+                try:
+                    kl = market(f"klines?symbol={sym}&interval={tf}&limit={KL_LIMIT}")
+                    last_kl[k] = now
+                    sigs = find_signals(kl, params, now * 1000)
+                    price = float(kl[-1][4])
+                    STATE["last_price"] = f"{sym} {price:.2f}"
+                    STATE["last_check"] = time.strftime("%H:%M:%S", time.gmtime(now + 7 * 3600))
+                    STATE["last_levels"] = f"{sym} {tf} sweep · swing={params['swingLen']} signals_in_window={len(sigs)}"
+                    keys = {(s["side"], s["t"]) for s in sigs}
+                    if k not in seen:
+                        seen[k] = keys           # first pass: remember history, don't send
                         continue
-                    for tag, lv in lvmap.items():
-                        up = p0 < lv <= price
-                        dn = p0 > lv >= price
-                        if not (up or dn):
+                    age = TF_SEC.get(tf, 900) * MAX_AGE_BARS * 1000
+                    for s in sigs:
+                        sk = (s["side"], s["t"])
+                        if sk in seen[k]:
                             continue
-                        fk = (sym, tf, tag, "u" if up else "d")
-                        if now - fired.get(fk, 0) < COOLDOWN:
+                        seen[k].add(sk)
+                        if now * 1000 - s["close_ms"] > age:
                             continue
-                        fired[fk] = now
-                        msg = format_signal(sym, tf, tag, up, lvmap, price)
-                        ok, err = send(tok, ch, msg)
+                        ok, err = send(tok, ch, format_signal(sym, tf, s, price))
                         if ok:
                             STATE["sent_count"] += 1
-                            STATE["last_sent"] = f"{tag} {NAMES.get(sym, sym)} {tf} @ {price:.2f}"
+                            STATE["last_sent"] = f"{s['side']} {NAMES.get(sym, sym)} {tf} @ {s['entry']:.2f}"
                             STATE["last_error"] = ""
                         else:
                             STATE["last_error"] = err
-            except Exception as e:
-                STATE["last_error"] = f"{sym}: {e}"
+                except Exception as e:
+                    STATE["last_error"] = f"{sym} {tf}: {e}"
         time.sleep(POLL_SEC)
 
 

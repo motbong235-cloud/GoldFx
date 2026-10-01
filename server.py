@@ -288,11 +288,10 @@ def indicator():
     if access == "off":
         return jsonify({"ok": True, "code": "", "locked": True, "reason": "disabled"})
     if access == "pro":
-        uid = session.get("uid")
-        if not uid:
+        email = session.get("user_email")
+        if not email:
             return jsonify({"ok": False, "error": "login required", "locked": True}), 401
-        users = {u.get("id"): u for u in (db_read().get("users") or [])}
-        u = users.get(uid) or {}
+        u = (db_read().get("users") or {}).get(email) or {}
         if not u.get("pro"):
             return jsonify({"ok": True, "code": "", "locked": True, "reason": "pro_only"})
     return jsonify({"ok": True, "code": code, "locked": False, "access": access})
@@ -687,7 +686,8 @@ def admin_settings():
         "DEFAULT_TF",
         "DEFAULT_CANDLE_STYLE",
         "CHART_SYMBOL",
-        
+        "INDICATOR_CODE",
+        "INDICATOR_ACCESS",
     ]
     for k in keys:
         if k in body:
@@ -716,14 +716,15 @@ def admin_signal_test():
         return jsonify({"ok": False, "error": "ដាក់ Bot Token និង Channel ID ជាមុន (រក្សាទុកសិន)"}), 400
     ok, err = signal_engine.send(tok, ch,
         "✅ <b>Gold Fx</b> · Test Signal\n"
+        "🟢 BUY · <b>XAUUSD</b> · 15m\n"
         "━━━━━━━━━━━━━━\n"
-        "🟢 ▲ BREAK <b>UP1</b>\n"
-        "<b>XAUUSD</b> · 15m · <b>BUY</b>\n"
-        "📍 Entry: <code>2650.00</code>\n"
-        "🎯 TP1: <code>2655.00</code>\n"
-        "🎯 TP2: <code>2660.00</code>\n"
-        "🛡 SL: <code>2645.00</code>\n"
+        "TP 2: <code>2660.00</code>\n"
+        "TP 1: <code>2655.00</code>\n"
+        "Et 1: <code>2650.00</code>\n"
+        "Et 2: <code>2648.90</code>\n"
+        "SL: <code>2645.00</code>\n"
         "━━━━━━━━━━━━━━\n"
+        "Key 🔑 <code>2646.20</code> (liquidity swept)\n"
         "Group connected · signals will post here")
     return jsonify({"ok": ok, "error": err})
 
