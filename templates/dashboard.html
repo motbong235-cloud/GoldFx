@@ -76,8 +76,18 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 .tf-bar::-webkit-scrollbar{display:none}
 .tf-bar button{flex:1 0 auto;white-space:nowrap;padding:7px 8px;border-radius:9px;font-weight:700;font-size:12px;color:var(--muted);text-align:center;transition:background .15s,color .15s}
 .tf-bar button.on{background:rgba(251,191,36,.16);color:var(--gold);box-shadow:inset 0 0 0 1px rgba(251,191,36,.35)}
+.toolbar{display:flex;align-items:center;gap:6px;margin:6px 8px 0;position:relative}
+.toolbar > .tf-bar{flex:1;min-width:0;margin:0}
+.gear{flex:0 0 auto;width:40px;height:40px;border-radius:11px;display:grid;place-items:center;background:var(--panel);border:1px solid var(--line);color:var(--muted)}
+.gear.on{color:var(--gold);border-color:rgba(251,191,36,.4)}
+.pop{position:absolute;right:0;top:calc(100% + 6px);width:min(340px,100%);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;z-index:40;box-shadow:0 14px 40px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:10px}
+.pop.hidden{display:none}
+.pop .tf-bar{margin:0;background:var(--bg)}
+.pop .tf-bar button{flex:1}
+.pop .gl{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 2px 5px}
+.pop .grp.hidden{display:none}
 .notice{margin:4px 8px 0;padding:4px 8px;font-size:10px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:8px;line-height:1.3}
-.status-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px 8px}
+.status-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px 8px}
 .stat-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 10px;min-width:0}
 .stat-card .label{font-size:10px;font-weight:600;color:var(--muted);margin-bottom:2px}
 .stat-card .val{font-weight:700;font-size:12px}
@@ -244,30 +254,47 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 
 <div class="layout">
   <div class="main">
-    <div class="tf-bar" id="tfBar">
-      <button type="button" data-tf="1">1m</button>
-      <button type="button" data-tf="5">5m</button>
-      <button type="button" class="on" data-tf="15">15m</button>
-      <button type="button" data-tf="30">30m</button>
-      <button type="button" data-tf="60">1h</button>
-      <button type="button" data-tf="240">4h</button>
-      <button type="button" data-tf="D">1D</button>
+    <div class="toolbar" id="toolbar">
+      <div class="tf-bar" id="tfBar">
+        <button type="button" data-tf="1">1m</button>
+        <button type="button" data-tf="5">5m</button>
+        <button type="button" class="on" data-tf="15">15m</button>
+        <button type="button" data-tf="30">30m</button>
+        <button type="button" data-tf="60">1h</button>
+        <button type="button" data-tf="240">4h</button>
+        <button type="button" data-tf="D">1D</button>
+      </div>
+      <button type="button" class="gear" id="gearBtn" aria-label="Chart settings" aria-expanded="false">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+      </button>
+      <div class="pop hidden" id="chartPop">
+        <div class="grp"><div class="gl">Chart</div>
+          <div class="tf-bar" id="viewBar">
+            <button type="button" class="on" data-view="signal">Signal · TP/SL</button>
+            <button type="button" data-view="tv">TradingView</button>
+          </div>
+        </div>
+        <div class="grp hidden" id="grpSrc"><div class="gl">Source</div>
+          <div class="tf-bar" id="srcBar">
+            <button type="button" data-sym="OANDA:XAUUSD">OANDA</button>
+            <button type="button" data-sym="FOREXCOM:XAUUSD">FOREX.com</button>
+            <button type="button" data-sym="FXCM:XAUUSD">FXCM</button>
+          </div>
+        </div>
+        <div class="grp"><div class="gl">Candle</div>
+          <div class="tf-bar" id="styleBar">
+            <button type="button" class="on" data-st="1">Candle</button>
+            <button type="button" data-st="8">Heikin Ashi</button>
+            <button type="button" data-st="2">Line</button>
+          </div>
+        </div>
+        <div class="grp" id="grpTheme"><div class="gl">Theme</div>
+          <div class="tf-bar" id="themeBar">
+            <button type="button" id="themeBtn">☀ Light</button>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="tf-bar" id="viewBar">
-      <button type="button" class="on" data-view="signal">Signal · TP/SL</button>
-      <button type="button" data-view="tv">TradingView</button>
-      <button type="button" id="themeBtn">☀ Light</button>
-    </div>
-    <div class="tf-bar" id="srcBar">
-      <button type="button" data-sym="FOREXCOM:XAUUSD">XAUUSD · FOREX.com</button>
-      <button type="button" data-sym="FXCM:XAUUSD">XAUUSD · FXCM</button>
-    </div>
-    <div class="tf-bar" id="styleBar">
-      <button type="button" class="on" data-st="1">Candle</button>
-      <button type="button" data-st="8">Heikin Ashi</button>
-      <button type="button" data-st="2">Line</button>
-    </div>
-    <div class="notice" id="notice">បើក browser alerts ដើម្បីទទួលបាន signal ពេលមាន signal ពី indicator</div>
     <div class="status-row">
       <div class="stat-card">
         <div class="label">Feed</div>
@@ -418,8 +445,8 @@ function enterApp(){
 }
 
 /* ========== Chart ========== */
-let symbol = 'FOREXCOM:XAUUSD';          // FOREXCOM:XAUUSD (FOREX.com) | FXCM:XAUUSD (FXCM)
-try{ const s = localStorage.getItem('goldfx_sym'); if(s === 'FOREXCOM:XAUUSD' || s === 'FXCM:XAUUSD') symbol = s; }catch(e){}
+let symbol = 'OANDA:XAUUSD';              // OANDA works in the free widget; FOREXCOM / FXCM may show "symbol doesn't exist"
+try{ const s = localStorage.getItem('goldfx_sym'); if(s === 'OANDA:XAUUSD' || s === 'FOREXCOM:XAUUSD' || s === 'FXCM:XAUUSD') symbol = s; }catch(e){}
 let interval = '15';
 let chartStyle = '1';                    // 1 = Candle, 8 = Heikin Ashi, 2 = Line
 try{ const s = localStorage.getItem('goldfx_style'); if(['1','8','2'].includes(s)) chartStyle = s; }catch(e){}
@@ -430,11 +457,12 @@ function syncBars(){
   document.querySelectorAll('#srcBar button').forEach(b => b.classList.toggle('on', b.dataset.sym === symbol));
   document.querySelectorAll('#viewBar button').forEach(b => b.classList.toggle('on', b.dataset.view === viewMode));
   const tb = document.getElementById('themeBtn'); if(tb) tb.textContent = viewTheme === 'light' ? '☀ Light' : '🌙 Dark';
-  const sb = document.getElementById('styleBar'); if(sb) sb.style.display = '';
+  const gs = document.getElementById('grpSrc'); if(gs) gs.classList.toggle('hidden', viewMode !== 'tv');
+  const gt = document.getElementById('grpTheme'); if(gt) gt.classList.toggle('hidden', viewMode !== 'signal');
 }
 
 /* ========== Signal chart (Entry / SL / TP1 / TP2 on the dashboard) ========== */
-const SIG = { swing: 10, slBuf: 0.5, rr1: 1, rr2: 2, len: 40, maxShown: 6 };
+const SIG = { swing: 10, slBuf: 0.5, rr1: 1, rr2: 2, len: 40, maxShown: 6, et2: 0.78, keyLen: 16 };   // et2 = Et 2 sits at 78% of the way from SL to Et 1
 let viewMode = 'signal';                 // 'signal' | 'tv'
 try{ const v = localStorage.getItem('goldfx_view'); if(v === 'tv' || v === 'signal') viewMode = v; }catch(e){}
 let KL = [];                             // klines of the current timeframe
@@ -482,11 +510,11 @@ function findSignals(bars){
     if(!highSwept && lastHigh !== null && b.h > lastHigh && b.c < lastHigh){
       highSwept = true;
       const entry = b.c, sl = b.h + SIG.slBuf, risk = sl - entry;
-      out.push({ side:'SELL', i, t:b.t, entry, sl, tp1: entry - risk*SIG.rr1, tp2: entry - risk*SIG.rr2, liq: lastHigh, liqT: closed[lastHighIdx].t });
+      out.push({ side:'SELL', i, t:b.t, entry, et2: sl - risk*SIG.et2, sl, tp1: entry - risk*SIG.rr1, tp2: entry - risk*SIG.rr2, liq: lastHigh, liqT: closed[lastHighIdx].t });
     } else if(!lowSwept && lastLow !== null && b.l < lastLow && b.c > lastLow){
       lowSwept = true;
       const entry = b.c, sl = b.l - SIG.slBuf, risk = entry - sl;
-      out.push({ side:'BUY', i, t:b.t, entry, sl, tp1: entry + risk*SIG.rr1, tp2: entry + risk*SIG.rr2, liq: lastLow, liqT: closed[lastLowIdx].t });
+      out.push({ side:'BUY', i, t:b.t, entry, et2: sl + risk*SIG.et2, sl, tp1: entry + risk*SIG.rr1, tp2: entry + risk*SIG.rr2, liq: lastLow, liqT: closed[lastLowIdx].t });
     }
   }
   // outcome: walk forward until SL or TP2 is touched
@@ -556,36 +584,32 @@ function paintOverlay(){
   if(!o.sigs.length) return;
   const C = themeColors(), ts = o.chart.timeScale(), main = o.main;
   const X = t => ts.timeToCoordinate(t), Y = p => main.priceToCoordinate(p);
-  const fs = Math.max(11, Math.min(14, Math.round(w / 34)));
-  g.font = '600 ' + fs + 'px Inter, system-ui, sans-serif';
-  g.textBaseline = 'alphabetic';
-  const label = (txt, x, y, color, right) => {
+  const fs = Math.max(12, Math.min(16, Math.round(w / 30)));
+  g.font = '500 ' + fs + 'px Inter, system-ui, sans-serif';
+  const label = (txt, x, y, color, align, dy) => {
     if(x === null || y === null) return;
-    g.fillStyle = color; g.textAlign = right ? 'right' : 'left';
-    g.fillText(txt, x + (right ? -4 : 4), y - 4);
+    g.textBaseline = 'middle'; g.textAlign = align || 'center';
+    g.fillStyle = color; g.fillText(txt, x, y + (dy || 0));
   };
-  const dot = (x, y, color, r) => {
+  const sun = (x, y) => {
     if(x === null || y === null) return;
-    g.beginPath(); g.arc(x, y, r + 3, 0, 7); g.fillStyle = 'rgba(255,255,255,.95)'; g.fill();
-    g.beginPath(); g.arc(x, y, r, 0, 7); g.fillStyle = color; g.fill();
-    g.beginPath(); g.arc(x, y, r * .45, 0, 7); g.fillStyle = 'rgba(255,255,255,.9)'; g.fill();
+    g.beginPath(); g.arc(x, y, 9, 0, 7); g.fillStyle = '#ffffff'; g.fill();
+    g.beginPath(); g.arc(x, y, 7, 0, 7); g.fillStyle = '#f5b800'; g.fill();
+    g.beginPath(); g.arc(x, y, 7, 0, 7); g.setLineDash([2, 2]); g.strokeStyle = '#ffffff'; g.lineWidth = 1.5; g.stroke(); g.setLineDash([]);
+    g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fillStyle = '#ffffff'; g.fill();
   };
   for(const s of o.sigs){
     const sell = s.side === 'SELL';
-    const x0 = X(s.t), x1 = X(s.endT);
-    // levels (text sits just above each line, starting at the signal candle)
-    label('SL: ' + s.sl.toFixed(2),       x0, Y(s.sl),    C.sl);
-    label('E: ' + s.entry.toFixed(2),     x0, Y(s.entry), C.entry);
-    label('TP 1: ' + s.tp1.toFixed(2) + (s.hit1 ? ' ✓' : ''), x0, Y(s.tp1), C.tp);
-    label('TP 2: ' + s.tp2.toFixed(2) + (s.result === 'tp2' ? ' ✓' : ''), x0, Y(s.tp2), C.tp);
-    // liquidity label at the right end of its line
-    const xl = X(s.liqEndT);
-    label((sell ? 'BSL' : 'SSL') + ' $$$', xl, Y(s.liq), C.liq, true);
-    // markers: entry, TP1/TP2 touch, SL touch
-    dot(x0, Y(s.entry), sell ? C.sell : C.buy, 6);
-    if(s.hit1Idx !== undefined && s.hit1Idx !== null) dot(X(s.hit1T), Y(s.tp1), '#f5b800', 6);
-    if(s.result === 'tp2') dot(x1, Y(s.tp2), '#f5b800', 6);
-    if(s.result === 'sl')  dot(x1, Y(s.sl), '#f23645', 6);
+    const xc = X(s.t);
+    const cx = xc === null ? null : xc + 8;                  // text is centred just right of the signal candle
+    label('TP 2: ' + s.tp2.toFixed(2) + (s.result === 'tp2' ? ' ✓' : ''), cx, Y(s.tp2), C.tp);
+    label('TP 1: ' + s.tp1.toFixed(2) + (s.hit1 ? ' ✓' : ''),              cx, Y(s.tp1), C.tp);
+    label('Et 1: ' + s.entry.toFixed(2), cx, Y(s.entry), C.entry);
+    label('Et 2: ' + s.et2.toFixed(2),   cx, Y(s.et2),   C.entry);
+    label('SL: ' + s.sl.toFixed(2),      cx, Y(s.sl),    C.sl);
+    // key (liquidity) line label at the right end of the line + yellow sun on the signal candle
+    label(sell ? 'BSL $$$ 💵' : 'Key 🔑', X(s.liqEndT), Y(s.liq), C.liq, 'right', -14);
+    sun(xc, Y(s.liq));
   }
 }
 function drawSignalChart(){
@@ -610,18 +634,9 @@ function drawSignalChart(){
   sigs.slice(-SIG.maxShown).forEach(s => {
     s.endT = s.endIdx !== null ? closed[s.endIdx].t : s.t + SIG.len * sec;
     s.hit1T = (s.hit1Idx !== undefined && s.hit1Idx !== null) ? closed[s.hit1Idx].t : null;
-    s.liqEndT = s.t + 12 * sec;
-    const seg = (price, color, dashed, t1) => {
-      const ls = chart.addLineSeries({ color, lineWidth:1, lineStyle: dashed ? 2 : 0, lastValueVisible:false, priceLineVisible:false, crosshairMarkerVisible:false });
-      ls.setData([{ time:s.t, value:price }, { time:t1, value:price }]);
-      lw.extras.push(ls);
-    };
-    seg(s.sl,    C.sl,    false, s.endT);
-    seg(s.entry, C.entry, true,  s.endT);
-    seg(s.tp1,   C.tp,    true,  s.endT);
-    seg(s.tp2,   C.tp,    true,  s.endT);
+    s.liqEndT = s.t + SIG.keyLen * sec;
     if(s.liqT < s.t){
-      const ls = chart.addLineSeries({ color:C.liq, lineWidth:1, lastValueVisible:false, priceLineVisible:false, crosshairMarkerVisible:false });
+      const ls = chart.addLineSeries({ color:C.liq, lineWidth:2, lastValueVisible:false, priceLineVisible:false, crosshairMarkerVisible:false });
       ls.setData([{ time:s.liqT, value:s.liq }, { time:s.liqEndT, value:s.liq }]);
       lw.extras.push(ls);
     }
@@ -690,6 +705,18 @@ function loadChart(){
     document.getElementById('feedStatus').style.color = 'var(--red)';
   }
 }
+(function(){
+  const gear = document.getElementById('gearBtn'), pop = document.getElementById('chartPop');
+  const close = () => { pop.classList.add('hidden'); gear.classList.remove('on'); gear.setAttribute('aria-expanded', 'false'); };
+  gear.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = pop.classList.toggle('hidden') === false;
+    gear.classList.toggle('on', open); gear.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  pop.addEventListener('click', e => { e.stopPropagation(); if(e.target.closest('button')) setTimeout(close, 150); });
+  document.addEventListener('click', close);
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') close(); });
+})();
 document.getElementById('themeBtn').addEventListener('click', () => {
   viewTheme = viewTheme === 'light' ? 'dark' : 'light';
   try{ localStorage.setItem('goldfx_theme', viewTheme); }catch(e){}
