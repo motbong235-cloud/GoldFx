@@ -462,7 +462,8 @@ function syncBars(){
 }
 
 /* ========== Signal chart (Entry / SL / TP1 / TP2 on the dashboard) ========== */
-const SIG = { swing: 10, slBuf: 0.5, rr1: 1, rr2: 2, len: 40, maxShown: 15, et2: 0.78, keyLen: 16, txtOff: 4 };   // et2 = Et 2 sits at 78% of the way from SL to Et 1
+const SIG = { swing: 10, slBuf: 0.5, rr1: 1, rr2: 2, len: 40, maxShown: 15, et2: 0.78, keyLen: 16, txtOff: 4, slN: 10, minWick: 0.4, minRisk: 1, maxRisk: 25 };   // slN = candles counted back for SL
+//   // et2 = Et 2 sits at 78% of the way from SL to Et 1
 let viewMode = 'signal';                 // 'signal' | 'tv'
 try{ const v = localStorage.getItem('goldfx_view'); if(v === 'tv' || v === 'signal') viewMode = v; }catch(e){}
 let KL = [];                             // klines of the current timeframe
@@ -489,6 +490,9 @@ function heikin(bars){
   return out;
 }
 // Same logic as the Pine indicator: sweep a swing high/low, candle closes back inside → signal
+function clearOk(wick, risk){
+  return !((SIG.minWick && wick < SIG.minWick) || (SIG.minRisk && risk < SIG.minRisk) || (SIG.maxRisk && risk > SIG.maxRisk));
+}
 function findSignals(bars){
   const L = SIG.swing, out = [];
   let lastHigh = null, lastHighIdx = -1, highSwept = true;
@@ -509,13 +513,17 @@ function findSignals(bars){
     const b = closed[i];
     if(!highSwept && lastHigh !== null && b.h > lastHigh && b.c < lastHigh){
       highSwept = true;
-      const entry = b.c, sl = b.h + SIG.slBuf, risk = sl - entry;
-      out.push({ side:'SELL', i, t:b.t, entry, et2: sl - risk*SIG.et2, sl, tp1: entry - risk*SIG.rr1, tp2: entry - risk*SIG.rr2, liq: lastHigh, liqT: closed[lastHighIdx].t, liqIdx: lastHighIdx });
+      const win = closed.slice(Math.max(0, i - SIG.slN + 1), i + 1);
+      const entry = b.c, sl = Math.max(...win.map(x => x.h)) + SIG.slBuf, risk = sl - entry;
+      const rng = b.h - b.l, wick = rng ? (b.h - Math.max(b.o, b.c)) / rng : 0;
+      if(clearOk(wick, risk)) out.push({ side:'SELL', i, t:b.t, entry, et2: sl - risk*SIG.et2, sl, tp1: entry - risk*SIG.rr1, tp2: entry - risk*SIG.rr2, liq: lastHigh, liqT: closed[lastHighIdx].t, liqIdx: lastHighIdx });
     }
     if(!lowSwept && lastLow !== null && b.l < lastLow && b.c > lastLow){
       lowSwept = true;
-      const entry = b.c, sl = b.l - SIG.slBuf, risk = entry - sl;
-      out.push({ side:'BUY', i, t:b.t, entry, et2: sl + risk*SIG.et2, sl, tp1: entry + risk*SIG.rr1, tp2: entry + risk*SIG.rr2, liq: lastLow, liqT: closed[lastLowIdx].t, liqIdx: lastLowIdx });
+      const win = closed.slice(Math.max(0, i - SIG.slN + 1), i + 1);
+      const entry = b.c, sl = Math.min(...win.map(x => x.l)) - SIG.slBuf, risk = entry - sl;
+      const rng = b.h - b.l, wick = rng ? (Math.min(b.o, b.c) - b.l) / rng : 0;
+      if(clearOk(wick, risk)) out.push({ side:'BUY', i, t:b.t, entry, et2: sl + risk*SIG.et2, sl, tp1: entry + risk*SIG.rr1, tp2: entry + risk*SIG.rr2, liq: lastLow, liqT: closed[lastLowIdx].t, liqIdx: lastLowIdx });
     }
   }
   // outcome: walk forward until SL or TP2 is touched
@@ -653,7 +661,7 @@ async function loadIndicatorParams(){
     const r = await fetch('/api/indicator', {credentials:'same-origin'}).then(x => x.json());
     const code = (r && r.code) || '';
     if(!code) return;
-    const map = { swingLen:'swing', slBuf:'slBuf', rr1:'rr1', rr2:'rr2', et2Pct:'et2', keyLen:'keyLen', txtOff:'txtOff' };
+    const map = { swingLen:'swing', slBuf:'slBuf', rr1:'rr1', rr2:'rr2', et2Pct:'et2', keyLen:'keyLen', txtOff:'txtOff', slLookback:'slN', minWick:'minWick', minRisk:'minRisk', maxRisk:'maxRisk' };
     let changed = false;
     for(const [pn, key] of Object.entries(map)){
       const m = code.match(new RegExp('\\b' + pn + '\\s*=\\s*input\\.(?:int|float)\\(\\s*(-?[\\d.]+)'));
