@@ -34,7 +34,11 @@ KL_LIMIT = 300
 MAX_AGE_BARS = 3         # only post a signal if its candle closed within the last N bars
 NAMES = {"PAXGUSDT": "XAUUSD", "XAUUSDT": "XAUUSD"}
 # Same defaults as the Pine indicator / dashboard (overridden by input() defaults in Admin → Indicator code)
-PARAMS = {"swingLen": 10, "slBuf": 0.5, "rr1": 1.0, "rr2": 2.0, "et2Pct": 0.78}
+PARAMS = {"swingLen": 10, "slBuf": 0.5, "rr1": 1.0, "rr2": 2.0, "et2Pct": 0.78, "slLookback": 10,
+          "minWick": 0.4, "minRisk": 1.0, "maxRisk": 25.0}
+# "Clear signal" filters (0 = off): minWick = rejection wick must be >= this share of the candle range,
+# minRisk / maxRisk = allowed SL distance in $ (skips noise-tight and over-wide setups)
+# slLookback = how many candles to count BACK from the signal candle (signal candle included) to place SL
 TF_SEC = {"1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600, "2h": 7200, "4h": 14400, "1d": 86400}
 
 STATE = {"running": False, "last_sent": "", "last_error": "", "sent_count": 0, "last_price": "", "last_check": "", "last_levels": ""}
@@ -73,7 +77,19 @@ def load_params(settings: dict) -> dict:
             except ValueError:
                 pass
     p["swingLen"] = max(2, int(p["swingLen"]))
+    p["slLookback"] = max(1, int(p["slLookback"]))
     return p
+
+
+def _clear(p: dict, wick: float, risk: float) -> bool:
+    """Only keep signals with a real rejection wick and a sensible SL distance."""
+    if p["minWick"] and wick < p["minWick"]:
+        return False
+    if p["minRisk"] and risk < p["minRisk"]:
+        return False
+    if p["maxRisk"] and risk > p["maxRisk"]:
+        return False
+    return True
 
 
 def find_signals(kl, p: dict, now_ms: float | None = None):
@@ -106,18 +122,26 @@ def find_signals(kl, p: dict, now_ms: float | None = None):
         t = int(closed[i][0])
         if not high_swept and last_high is not None and h > last_high and c < last_high:
             high_swept = True
-            sl = h + p["slBuf"]
+            win = closed[max(0, i - p["slLookback"] + 1): i + 1]      # count candles backwards
+            sl = max(float(k[2]) for k in win) + p["slBuf"]            # SL above the highest high of those candles
             risk = sl - c
-            out.append({"side": "SELL", "i": i, "t": t, "close_ms": float(closed[i][6]), "liq": last_high,
+            o = float(closed[i][1]); rng = h - l
+            wick = (h - max(o, c)) / rng if rng else 0.0      # upper rejection wick share
+            if _clear(p, wick, risk):
+                out.append({"side": "SELL", "i": i, "t": t, "close_ms": float(closed[i][6]), "liq": last_high,
                         "entry": c, "et2": sl - risk * p["et2Pct"], "sl": sl,
-                        "tp1": c - risk * p["rr1"], "tp2": c - risk * p["rr2"]})
+                        "tp1": c - risk * p["rr1"], "tp2": c - risk * p["rr2"], "risk": risk, "n": len(win), "wick": wick})
         if not low_swept and last_low is not None and l < last_low and c > last_low:
             low_swept = True
-            sl = l - p["slBuf"]
+            win = closed[max(0, i - p["slLookback"] + 1): i + 1]      # count candles backwards
+            sl = min(float(k[3]) for k in win) - p["slBuf"]            # SL below the lowest low of those candles
             risk = c - sl
-            out.append({"side": "BUY", "i": i, "t": t, "close_ms": float(closed[i][6]), "liq": last_low,
+            o = float(closed[i][1]); rng = h - l
+            wick = (min(o, c) - l) / rng if rng else 0.0      # lower rejection wick share
+            if _clear(p, wick, risk):
+                out.append({"side": "BUY", "i": i, "t": t, "close_ms": float(closed[i][6]), "liq": last_low,
                         "entry": c, "et2": sl + risk * p["et2Pct"], "sl": sl,
-                        "tp1": c + risk * p["rr1"], "tp2": c + risk * p["rr2"]})
+                        "tp1": c + risk * p["rr1"], "tp2": c + risk * p["rr2"], "risk": risk, "n": len(win), "wick": wick})
     return out
 
 
@@ -127,16 +151,25 @@ def format_signal(sym: str, tf: str, s: dict, price: float) -> str:
     head = "🔴 SELL" if sell else "🟢 BUY"
     key = "BSL $$$ 💵" if sell else "Key 🔑"
     ict = time.strftime("%H:%M:%S", time.gmtime(time.time() + 7 * 3600))
+    e = s["entry"]
+
+    def dist(x):                       # distance from entry: $ and pips (1 pip = $0.10 on gold)
+        d = abs(x - e)
+        return f"{d:.2f}$ · {d * 10:.0f} pips"
+
+    rr1 = abs(s["tp1"] - e) / s["risk"] if s["risk"] else 0
+    rr2 = abs(s["tp2"] - e) / s["risk"] if s["risk"] else 0
     return (
         f"{head} · <b>{name}</b> · {tf}\n"
         f"━━━━━━━━━━━━━━\n"
-        f"TP 2: <code>{s['tp2']:.2f}</code>\n"
-        f"TP 1: <code>{s['tp1']:.2f}</code>\n"
-        f"Et 1: <code>{s['entry']:.2f}</code>\n"
-        f"Et 2: <code>{s['et2']:.2f}</code>\n"
-        f"SL: <code>{s['sl']:.2f}</code>\n"
+        f"📍 Entry 1: <code>{e:.2f}</code>\n"
+        f"📍 Entry 2: <code>{s['et2']:.2f}</code>\n"
+        f"🛑 SL: <code>{s['sl']:.2f}</code>  (−{dist(s['sl'])})\n"
+        f"🎯 TP 1: <code>{s['tp1']:.2f}</code>  (+{dist(s['tp1'])} · RR 1:{rr1:g})\n"
+        f"🎯 TP 2: <code>{s['tp2']:.2f}</code>  (+{dist(s['tp2'])} · RR 1:{rr2:g})\n"
         f"━━━━━━━━━━━━━━\n"
         f"{key} <code>{s['liq']:.2f}</code> (liquidity swept)\n"
+        f"✅ Rejection wick {s.get('wick', 0) * 100:.0f}% · SL counted back {s.get('n', 1)} candle(s)\n"
         f"💰 Price: <code>{price:.2f}</code>\n"
         f"⏰ {ict} (ICT) · Gold Fx Signal"
     )
