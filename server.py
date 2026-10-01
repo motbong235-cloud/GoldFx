@@ -313,7 +313,7 @@ def public_config():
             "chat_enabled": str(st.get("CHAT_ENABLED", "1")) != "0",
             "default_tf": st.get("DEFAULT_TF") or "15",
             "default_style": st.get("DEFAULT_CANDLE_STYLE") or "1",
-            "chart_symbol": st.get("CHART_SYMBOL") or "OANDA:XAUUSD",
+            "chart_symbol": (st.get("CHART_SYMBOL") if st.get("CHART_SYMBOL") in ("FOREXCOM:XAUUSD", "FXCM:XAUUSD") else "FOREXCOM:XAUUSD"),
         }
     )
 
