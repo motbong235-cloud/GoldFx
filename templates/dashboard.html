@@ -462,7 +462,7 @@ function syncBars(){
 }
 
 /* ========== Signal chart (Entry / SL / TP1 / TP2 on the dashboard) ========== */
-const SIG = { swing: 10, slBuf: 0.5, rr1: 1, rr2: 2, len: 40, maxShown: 15, et2: 0.78, keyLen: 16, txtOff: 4, slN: 10, minWick: 0.4, minRisk: 1, maxRisk: 25 };   // slN = candles counted back for SL
+const SIG = { swing: 10, slBuf: 0.5, rr1: 1, rr2: 2, len: 40, maxShown: 15, et2: 0.78, keyLen: 16, txtOff: 4, slN: 10, minWick: 0, minRisk: 0, maxRisk: 0 };   // slN = candles counted back for SL
 //   // et2 = Et 2 sits at 78% of the way from SL to Et 1
 let viewMode = 'signal';                 // 'signal' | 'tv'
 try{ const v = localStorage.getItem('goldfx_view'); if(v === 'tv' || v === 'signal') viewMode = v; }catch(e){}
