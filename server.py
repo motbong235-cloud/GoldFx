@@ -679,6 +679,7 @@ def admin_settings():
         "TG_BOT_TOKEN",
         "SIGNAL_CHANNEL_ID",
         "SIGNAL_THREAD_ID",
+        "SIGNAL_SOURCE",
         "SIGNAL_MAX_AGE_BARS",
         "SIGNAL_ENABLED",
         "ALERTS_ENABLED",
@@ -730,6 +731,58 @@ def admin_signal_test():
         "Group connected · signals will post here",
         str(st.get("SIGNAL_THREAD_ID") or "").strip() or None)
     return jsonify({"ok": ok, "error": err})
+
+
+
+def _tv_secret(create: bool = False) -> str:
+    d = db_read()
+    st = d.setdefault("settings", {})
+    sec = str(st.get("TV_WEBHOOK_SECRET") or os.environ.get("TV_WEBHOOK_SECRET") or "")
+    if not sec and create:
+        sec = secrets.token_urlsafe(18)
+        st["TV_WEBHOOK_SECRET"] = sec
+        db_write(d)
+    return sec
+
+
+@app.route("/api/tv/webhook", methods=["POST"])
+def tv_webhook():
+    """TradingView alert → Telegram group. URL: /api/tv/webhook?key=<secret>"""
+    sec = _tv_secret()
+    raw = request.get_data(as_text=True) or ""
+    got = request.args.get("key") or ""
+    if not got:
+        pl = signal_engine.parse_tv_payload(raw)
+        got = str(pl.get("key") or pl.get("secret") or "") if isinstance(pl, dict) else ""
+    if not sec or not secrets.compare_digest(str(got), sec):
+        return jsonify({"ok": False, "error": "Unauthorized (open /api/admin/tv/info for the correct URL)"}), 401
+    code, body = signal_engine.handle_tv(raw, db_read().get("settings") or {})
+    return jsonify(body), code
+
+
+@app.route("/api/admin/tv/info", methods=["GET"])
+@admin_required
+def admin_tv_info():
+    """Shows the webhook URL + alert message templates (creates the secret on first use)."""
+    sec = _tv_secret(create=True)
+    url = request.host_url.replace("http://", "https://").rstrip("/") + "/api/tv/webhook?key=" + sec
+    return jsonify({
+        "webhook_url": url,
+        "source": signal_engine._source(db_read().get("settings") or {}),
+        "alert_message_simple": '{"side":"SELL","symbol":"{{ticker}}","tf":"{{interval}}","entry":{{close}}}',
+        "alert_message_exact_pine": 'alert(\'{"side":"SELL","symbol":"\' + syminfo.ticker + \'","tf":"\' + timeframe.period + \'","entry":\' + str.tostring(close) + \',"sl":\' + str.tostring(SL) + \',"tp1":\' + str.tostring(TP1) + \',"tp2":\' + str.tostring(TP2) + \'}\', alert.freq_once_per_bar_close)',
+    })
+
+
+@app.route("/api/admin/tv/test", methods=["GET", "POST"])
+@admin_required
+def admin_tv_test():
+    """Sends a TEST signal through the same path as a TradingView alert (verifies group + formatting)."""
+    code, body = signal_engine.handle_tv(
+        '{"side":"SELL","symbol":"XAUUSD","tf":"5","entry":' + str(request.args.get("entry") or "0") + '}'
+        if request.args.get("entry") else '{"side":"SELL","symbol":"XAUUSD","tf":"5"}',
+        db_read().get("settings") or {}, test=True)
+    return jsonify(body), code
 
 
 @app.route("/api/admin/signal/latest", methods=["GET", "POST"])
@@ -806,7 +859,7 @@ def err_500(e):
 
 
 
-BUILD = "goldfx-v5"
+BUILD = "goldfx-v6"
 print(f"[boot] Gold Fx build {BUILD}", flush=True)
 
 

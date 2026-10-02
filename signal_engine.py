@@ -153,6 +153,8 @@ def format_signal(sym: str, tf: str, s: dict, price: float) -> str:
     name = NAMES.get(sym, sym)
     sell = s["side"] == "SELL"
     head = "🔴 SELL" if sell else "🟢 BUY"
+    if s.get("test"):
+        head = "🧪 TEST · " + head
     key = "BSL $$$ 💵" if sell else "Key 🔑"
     ict = time.strftime("%H:%M:%S", time.gmtime(time.time() + 7 * 3600))
     e = s["entry"]
@@ -161,22 +163,31 @@ def format_signal(sym: str, tf: str, s: dict, price: float) -> str:
         d = abs(x - e)
         return f"{d:.2f}$ · {d * 10:.0f} pips"
 
-    rr1 = abs(s["tp1"] - e) / s["risk"] if s["risk"] else 0
-    rr2 = abs(s["tp2"] - e) / s["risk"] if s["risk"] else 0
-    return (
-        f"{head} · <b>{name}</b> · {tf}\n"
-        f"━━━━━━━━━━━━━━\n"
-        f"📍 Entry 1: <code>{e:.2f}</code>\n"
-        f"📍 Entry 2: <code>{s['et2']:.2f}</code>\n"
-        f"🛑 SL: <code>{s['sl']:.2f}</code>  (−{dist(s['sl'])})\n"
-        f"🎯 TP 1: <code>{s['tp1']:.2f}</code>  (+{dist(s['tp1'])} · RR 1:{rr1:g})\n"
-        f"🎯 TP 2: <code>{s['tp2']:.2f}</code>  (+{dist(s['tp2'])} · RR 1:{rr2:g})\n"
-        f"━━━━━━━━━━━━━━\n"
-        f"{key} <code>{s['liq']:.2f}</code> (liquidity swept)\n"
-        f"✅ Rejection wick {s.get('wick', 0) * 100:.0f}% · SL counted back {s.get('n', 1)} candle(s)\n"
-        f"💰 Price: <code>{price:.2f}</code>\n"
-        f"⏰ {ict} (ICT) · Gold Fx Signal"
-    )
+    risk = s.get("risk") or abs(s["sl"] - e)
+    rr1 = abs(s["tp1"] - e) / risk if risk else 0
+    rr2 = abs(s["tp2"] - e) / risk if risk else 0
+    lines = [
+        f"{head} · <b>{name}</b> · {tf}",
+        "━━━━━━━━━━━━━━",
+        f"📍 Entry 1: <code>{e:.2f}</code>",
+        f"📍 Entry 2: <code>{s['et2']:.2f}</code>",
+        f"🛑 SL: <code>{s['sl']:.2f}</code>  (−{dist(s['sl'])})",
+        f"🎯 TP 1: <code>{s['tp1']:.2f}</code>  (+{dist(s['tp1'])} · RR 1:{rr1:g})",
+        f"🎯 TP 2: <code>{s['tp2']:.2f}</code>  (+{dist(s['tp2'])} · RR 1:{rr2:g})",
+        "━━━━━━━━━━━━━━",
+    ]
+    if s.get("liq"):
+        lines.append(f"{key} <code>{s['liq']:.2f}</code> (liquidity swept)")
+    extra = []
+    if s.get("wick") is not None:
+        extra.append(f"Rejection wick {s['wick'] * 100:.0f}%")
+    if s.get("n"):
+        extra.append(f"SL counted back {s['n']} candle(s)")
+    if extra:
+        lines.append("✅ " + " · ".join(extra))
+    lines.append(f"💰 Price: <code>{price:.2f}</code>")
+    lines.append(f"⏰ {ict} (ICT) · Gold Fx Signal" + (f" · {s['src']}" if s.get("src") else ""))
+    return "\n".join(lines)
 
 
 _CHAT_MAP: dict = {}      # old group id -> supergroup id (Telegram migrates groups when upgraded)
@@ -261,6 +272,15 @@ def _cfg(get_settings):
 
 _sent_path = None
 _hb = [0.0]
+
+
+def now_hb() -> bool:
+    """True once every 5 minutes (for the heartbeat log line)."""
+    t = time.time()
+    if t - _hb[0] > 300:
+        _hb[0] = t
+        return True
+    return False
 
 
 def _load_sent() -> dict:
@@ -354,6 +374,13 @@ def _loop(get_settings):
             STATE["last_error"] = f"settings: {e}"
             time.sleep(POLL_SEC)
             continue
+        if _source(st) != "engine":
+            STATE["last_levels"] = "source = TradingView webhook (built-in engine paused)"
+            if now_hb(): print("[signal] alive · source=TradingView webhook · "
+                               f"sent_total={STATE.get('sent_count')} · last={STATE.get('last_sent') or '-'} · "
+                               f"err={STATE.get('last_error') or '-'}", flush=True)
+            time.sleep(POLL_SEC)
+            continue
         if not (tok and ch and on):
             why = ("SIGNAL_ENABLED=0 (បិទ signal)" if not on else
                    "Bot Token មិនទាន់ដាក់" if not tok else "Channel ID មិនទាន់ដាក់")
@@ -410,6 +437,144 @@ def _loop(get_settings):
                 except Exception as e:
                     STATE["last_error"] = f"{sym} {tf}: {e}"
         time.sleep(POLL_SEC)
+
+
+
+# ============================ TradingView webhook ============================
+import re as _re
+
+_TV_SEEN: dict = {}
+
+
+def _source(st: dict) -> str:
+    """'tradingview' (default): signals come from TradingView alerts via webhook.
+    'engine': the built-in Binance engine detects and posts signals itself."""
+    v = str((st or {}).get("SIGNAL_SOURCE") or os.environ.get("SIGNAL_SOURCE") or "tradingview").strip().lower()
+    return "engine" if v in ("engine", "auto", "binance") else "tradingview"
+
+
+def _num(v):
+    try:
+        return float(str(v).strip().replace(",", ""))
+    except Exception:
+        return None
+
+
+def parse_tv_payload(raw: str) -> dict:
+    """TradingView sends the alert message as the body: JSON, or free text like 'SELL XAUUSD sl=4190 tp1=4180'."""
+    raw = (raw or "").strip()
+    try:
+        d = json.loads(raw)
+        if isinstance(d, dict):
+            return {str(k).lower(): v for k, v in d.items()}
+    except Exception:
+        pass
+    d = {}
+    m = _re.search(r"\b(buy|sell|long|short)\b", raw, _re.I)
+    if m:
+        d["side"] = m.group(1)
+    for k, v in _re.findall(r"([A-Za-z][A-Za-z0-9_]*)\s*[:=]\s*(-?[0-9][0-9.,]*)", raw):
+        d[k.lower()] = v
+    return d
+
+
+def _pick(d: dict, *names):
+    for n in names:
+        if n in d and d[n] not in (None, ""):
+            return d[n]
+    return None
+
+
+def build_from_tv(payload: dict, settings: dict, test: bool = False):
+    """Turn a TradingView alert into (signal_dict, symbol, timeframe, price). Missing SL/TP/Entry2 are filled in
+    using the same rules as the chart: SL = beyond the extreme of the last N candles, TP by RR."""
+    side_raw = str(_pick(payload, "side", "action", "signal", "direction", "type") or "").strip().lower()
+    side = {"buy": "BUY", "long": "BUY", "bull": "BUY", "bullish": "BUY",
+            "sell": "SELL", "short": "SELL", "bear": "SELL", "bearish": "SELL"}.get(side_raw)
+    if not side:
+        raise ValueError("side missing (use BUY or SELL)")
+    sym_raw = str(_pick(payload, "symbol", "ticker", "sym") or "XAUUSD")
+    sym = sym_raw.split(":")[-1].upper() or "XAUUSD"
+    tf = _norm_tf(str(_pick(payload, "tf", "interval", "timeframe") or "5m"))
+    p = load_params(settings)
+    entry = _num(_pick(payload, "entry", "entry1", "et1", "price", "close"))
+    sl = _num(_pick(payload, "sl", "stop", "stoploss", "stop_loss"))
+    tp1 = _num(_pick(payload, "tp1", "tp"))
+    tp2 = _num(_pick(payload, "tp2"))
+    et2 = _num(_pick(payload, "entry2", "et2"))
+    liq = _num(_pick(payload, "liq", "key", "level"))
+    n = None
+    price = entry
+    if entry is None or sl is None:
+        # need market candles to fill the gaps (Binance PAXG used only for relative distances)
+        itv = tf if tf in TF_SEC else "5m"
+        kl = market(f"klines?symbol=PAXGUSDT&interval={itv}&limit=60")
+        closed = [k for k in kl if float(k[6]) < time.time() * 1000]
+        if not closed:
+            raise ValueError("no market data")
+        last_c = float(closed[-1][4])
+        if entry is None:
+            entry = last_c
+        price = entry if price is None else price
+        if sl is None:
+            win = closed[-p["slLookback"]:]
+            n = len(win)
+            if side == "SELL":
+                sl = entry + (max(float(k[2]) for k in win) + p["slBuf"] - last_c)
+            else:
+                sl = entry - (last_c - (min(float(k[3]) for k in win) - p["slBuf"]))
+    risk = abs(sl - entry)
+    if risk <= 0:
+        raise ValueError("SL equals entry")
+    if (side == "SELL" and sl <= entry) or (side == "BUY" and sl >= entry):
+        raise ValueError("SL is on the wrong side of entry")
+    sgn = -1 if side == "SELL" else 1
+    if tp1 is None:
+        tp1 = entry + sgn * risk * p["rr1"]
+    if tp2 is None:
+        tp2 = entry + sgn * risk * p["rr2"]
+    if et2 is None:
+        et2 = sl + sgn * risk * p["et2Pct"]            # SELL: sl - risk*pct ; BUY: sl + risk*pct (same as chart)
+    sig = {"side": side, "entry": entry, "et2": et2, "sl": sl, "tp1": tp1, "tp2": tp2, "risk": risk,
+           "liq": liq, "n": n, "src": "TradingView", "test": test}
+    return sig, sym, tf, float(price)
+
+
+def handle_tv(raw: str, settings: dict, test: bool = False):
+    """Returns (http_status, json). Posts the TradingView signal to the Telegram group."""
+    st = settings or {}
+    tok = str(st.get("TG_BOT_TOKEN") or "").strip()
+    ch = str(st.get("SIGNAL_CHANNEL_ID") or "").strip()
+    thread = str(st.get("SIGNAL_THREAD_ID") or "").strip() or None
+    if not (tok and ch):
+        return 400, {"ok": False, "error": "Bot Token / Channel ID missing"}
+    if str(st.get("SIGNAL_ENABLED", "1")) == "0":
+        return 200, {"ok": True, "skipped": "SIGNAL_ENABLED=0"}
+    try:
+        payload = parse_tv_payload(raw)
+        sig, sym, tf, price = build_from_tv(payload, st, test)
+    except Exception as e:
+        STATE["last_error"] = f"TradingView alert: {e}"
+        print(f"[signal] TV alert rejected: {e} · body={str(raw)[:200]!r}", flush=True)
+        return 400, {"ok": False, "error": str(e)}
+    now = time.time()
+    dk = (sig["side"], sym, tf, round(sig["entry"], 1), test)
+    for k in [k for k, t in _TV_SEEN.items() if now - t > 120]:
+        _TV_SEEN.pop(k, None)
+    if dk in _TV_SEEN:
+        return 200, {"ok": True, "skipped": "duplicate"}
+    ok, err = send(tok, ch, format_signal(sym, tf, sig, price), thread)
+    if not ok:
+        STATE["last_error"] = err
+        print(f"[signal] TV SEND FAILED: {err}", flush=True)
+        return 502, {"ok": False, "error": err}
+    _TV_SEEN[dk] = now
+    if not test:
+        STATE["sent_count"] += 1
+    STATE["last_sent"] = f"{sig['side']} {sym} {tf} @ {sig['entry']:.2f} (TradingView)"
+    STATE["last_error"] = ""
+    print(f"[signal] sent {STATE['last_sent']}", flush=True)
+    return 200, {"ok": True, "sent": STATE["last_sent"]}
 
 
 def _acquire_lock(path):
