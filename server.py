@@ -678,6 +678,8 @@ def admin_settings():
         "BAKONG_CURRENCY",
         "TG_BOT_TOKEN",
         "SIGNAL_CHANNEL_ID",
+        "SIGNAL_THREAD_ID",
+        "SIGNAL_MAX_AGE_BARS",
         "SIGNAL_ENABLED",
         "ALERTS_ENABLED",
         "SIGNAL_TIMEFRAMES",
@@ -725,8 +727,16 @@ def admin_signal_test():
         "SL: <code>2645.00</code>\n"
         "━━━━━━━━━━━━━━\n"
         "Key 🔑 <code>2646.20</code> (liquidity swept)\n"
-        "Group connected · signals will post here")
+        "Group connected · signals will post here",
+        str(st.get("SIGNAL_THREAD_ID") or "").strip() or None)
     return jsonify({"ok": ok, "error": err})
+
+
+@app.route("/api/admin/signal/latest", methods=["POST"])
+@admin_required
+def admin_signal_latest():
+    """Send the latest signal of each symbol/timeframe to the group now and list what the engine sees."""
+    return jsonify(signal_engine.send_latest(db_read().get("settings") or {}))
 
 
 @app.route("/api/admin/bakong/test", methods=["POST"])

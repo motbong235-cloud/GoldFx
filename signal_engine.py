@@ -11,6 +11,7 @@ import json
 import os
 import re
 import threading
+from pathlib import Path
 import time
 import urllib.error
 import urllib.parse
@@ -31,11 +32,12 @@ _good = 0
 POLL_SEC = 10
 KL_REFRESH = 20          # seconds between kline refreshes per (symbol, timeframe)
 KL_LIMIT = 300
-MAX_AGE_BARS = 3         # only post a signal if its candle closed within the last N bars
+MAX_AGE_BARS = 5         # post a signal if its candle closed within the last N bars (admin: SIGNAL_MAX_AGE_BARS)
+                         # larger = fewer missed signals after a restart / sleep; smaller = never post stale ones
 NAMES = {"PAXGUSDT": "XAUUSD", "XAUUSDT": "XAUUSD"}
 # Same defaults as the Pine indicator / dashboard (overridden by input() defaults in Admin → Indicator code)
 PARAMS = {"swingLen": 10, "slBuf": 0.5, "rr1": 1.0, "rr2": 2.0, "et2Pct": 0.78, "slLookback": 10,
-          "minWick": 0.4, "minRisk": 1.0, "maxRisk": 25.0}
+          "minWick": 0.0, "minRisk": 0.0, "maxRisk": 0.0}
 # "Clear signal" filters (0 = off): minWick = rejection wick must be >= this share of the candle range,
 # minRisk / maxRisk = allowed SL distance in $ (skips noise-tight and over-wide setups)
 # slLookback = how many candles to count BACK from the signal candle (signal candle included) to place SL
@@ -175,25 +177,46 @@ def format_signal(sym: str, tf: str, s: dict, price: float) -> str:
     )
 
 
-def send(token: str, chat_id: str, text: str):
-    """Returns (ok, error_message). chat_id = @channel or -100xxxxxxxxxx"""
+_CHAT_MAP: dict = {}      # old group id -> supergroup id (Telegram migrates groups when upgraded)
+
+
+def send(token: str, chat_id: str, text: str, thread_id: str | None = None, _retry: bool = True):
+    """Returns (ok, error_message). chat_id = @channel or -100xxxxxxxxxx (group / supergroup / channel)."""
+    chat_id = str(chat_id).strip()
+    chat_id = _CHAT_MAP.get(chat_id, chat_id)
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    data = urllib.parse.urlencode({
+    payload = {
         "chat_id": chat_id,
         "text": text,
         "parse_mode": "HTML",
         "disable_web_page_preview": "true",
-    }).encode()
+    }
+    if thread_id:
+        payload["message_thread_id"] = str(thread_id).strip()      # forum topic inside a group
+    data = urllib.parse.urlencode(payload).encode()
     try:
         with urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=15) as r:
             j = json.loads(r.read().decode())
             return bool(j.get("ok")), "" if j.get("ok") else str(j)
     except urllib.error.HTTPError as e:
         try:
-            desc = json.loads(e.read().decode()).get("description", "")
+            body = json.loads(e.read().decode())
         except Exception:
-            desc = ""
-        return False, f"Telegram {e.code}: {desc}"
+            body = {}
+        desc = body.get("description", "")
+        params = body.get("parameters") or {}
+        mig = params.get("migrate_to_chat_id")
+        if mig and _retry:                                           # group was upgraded to supergroup
+            _CHAT_MAP[chat_id] = str(mig)
+            return send(token, str(mig), text, thread_id, False)
+        wait = params.get("retry_after")
+        if e.code == 429 and wait and _retry and int(wait) <= 20:    # flood control
+            time.sleep(int(wait) + 1)
+            return send(token, chat_id, text, thread_id, False)
+        hint = ""
+        if e.code in (400, 403):
+            hint = " → Add the bot to the group/channel as ADMIN (allow Post messages) and use the -100… chat id"
+        return False, f"Telegram {e.code}: {desc}{hint}"
     except Exception as e:
         return False, str(e)
 
@@ -216,19 +239,90 @@ def _cfg(get_settings):
     return tok, ch, on, syms, tfs
 
 
+_sent_path = None
+
+
+def _load_sent() -> dict:
+    """Remember which signals were already handled so a restart never re-sends or loses them."""
+    try:
+        d = json.loads(Path(_sent_path).read_text(encoding="utf-8")) if _sent_path else {}
+        out = {}
+        for key, v in d.items():
+            sym, tf = key.split("|", 1)
+            out[(sym, tf)] = {(a, int(t)) for a, t in v}
+        return out
+    except Exception:
+        return {}
+
+
+def _save_sent(seen: dict):
+    if not _sent_path:
+        return
+    try:
+        d = {f"{k[0]}|{k[1]}": sorted(v, key=lambda x: x[1])[-200:] for k, v in seen.items()}
+        tmp = str(_sent_path) + ".tmp"
+        Path(tmp).write_text(json.dumps(d), encoding="utf-8")
+        os.replace(tmp, _sent_path)
+    except Exception:
+        pass
+
+
+def _ict(ms: float) -> str:
+    return time.strftime("%d %b %H:%M", time.gmtime(ms / 1000 + 7 * 3600))
+
+
+def send_latest(settings: dict) -> dict:
+    """Admin tool: send the most recent signal of every symbol/timeframe to the group right now
+    (ignores age) and report what was found, so it can be compared with TradingView."""
+    s = settings or {}
+    tok = str(s.get("TG_BOT_TOKEN") or "").strip()
+    ch = str(s.get("SIGNAL_CHANNEL_ID") or "").strip()
+    thread = str(s.get("SIGNAL_THREAD_ID") or "").strip() or None
+    if not (tok and ch):
+        return {"ok": False, "error": "Bot Token / Channel ID missing", "found": [], "sent": 0}
+    _, _, _, syms, tfs = _cfg(lambda: s)
+    params = load_params(s)
+    found, sent, err = [], 0, ""
+    for sym in syms:
+        for tf in tfs:
+            try:
+                kl = market(f"klines?symbol={sym}&interval={tf}&limit={KL_LIMIT}")
+                sigs = find_signals(kl, params)
+                price = float(kl[-1][4])
+                if not sigs:
+                    found.append(f"{sym} {tf}: no signal in last {len(kl)} candles")
+                    continue
+                last = sigs[-1]
+                found.append(f"{sym} {tf}: {last['side']} @ {last['entry']:.2f} · candle {_ict(last['t'])} ICT")
+                ok, e = send(tok, ch, format_signal(sym, tf, last, price), thread)
+                if ok:
+                    sent += 1
+                else:
+                    err = e
+            except Exception as ex:
+                err = f"{sym} {tf}: {ex}"
+    return {"ok": not err, "error": err, "found": found, "sent": sent}
+
+
 def _loop(get_settings):
-    last_kl, seen = {}, {}
+    last_kl = {}
+    seen = _load_sent()
     STATE["running"] = True
     while True:
         try:
             tok, ch, on, syms, tfs = _cfg(get_settings)
-            params = load_params(get_settings())
+            st = get_settings() or {}
+            params = load_params(st)
+            thread = str(st.get("SIGNAL_THREAD_ID") or "").strip() or None
+            try:
+                max_age = max(1, min(20, int(float(st.get("SIGNAL_MAX_AGE_BARS") or MAX_AGE_BARS))))
+            except Exception:
+                max_age = MAX_AGE_BARS
         except Exception as e:
             STATE["last_error"] = f"settings: {e}"
             time.sleep(POLL_SEC)
             continue
         if not (tok and ch and on):
-            seen.clear()      # re-seed when turned back on → no burst of old signals
             time.sleep(POLL_SEC)
             continue
         now = time.time()
@@ -245,25 +339,33 @@ def _loop(get_settings):
                     STATE["last_price"] = f"{sym} {price:.2f}"
                     STATE["last_check"] = time.strftime("%H:%M:%S", time.gmtime(now + 7 * 3600))
                     STATE["last_levels"] = f"{sym} {tf} sweep · swing={params['swingLen']} signals_in_window={len(sigs)}"
-                    keys = {(s["side"], s["t"]) for s in sigs}
-                    if k not in seen:
-                        seen[k] = keys           # first pass: remember history, don't send
-                        continue
-                    age = TF_SEC.get(tf, 900) * MAX_AGE_BARS * 1000
+                    if sigs:
+                        l = sigs[-1]
+                        STATE.setdefault("last_found", {})[f"{sym} {tf}"] = f"{l['side']} @ {l['entry']:.2f} · candle {_ict(l['t'])} ICT"
+                    seen.setdefault(k, set())
+                    age = TF_SEC.get(tf, 900) * max_age * 1000
+                    changed = False
                     for s in sigs:
                         sk = (s["side"], s["t"])
                         if sk in seen[k]:
                             continue
-                        seen[k].add(sk)
-                        if now * 1000 - s["close_ms"] > age:
+                        if now * 1000 - s["close_ms"] > age:      # too old → just remember it
+                            seen[k].add(sk)
+                            changed = True
                             continue
-                        ok, err = send(tok, ch, format_signal(sym, tf, s, price))
+                        ok, err = send(tok, ch, format_signal(sym, tf, s, price), thread)
                         if ok:
+                            seen[k].add(sk)
+                            changed = True
                             STATE["sent_count"] += 1
                             STATE["last_sent"] = f"{s['side']} {NAMES.get(sym, sym)} {tf} @ {s['entry']:.2f}"
                             STATE["last_error"] = ""
+                            print(f"[signal] sent {STATE['last_sent']}", flush=True)
                         else:
-                            STATE["last_error"] = err
+                            print(f"[signal] SEND FAILED {sym} {tf} {s['side']}: {err}", flush=True)
+                            STATE["last_error"] = err           # not marked → retried next poll while still fresh
+                    if changed:
+                        _save_sent(seen)
                 except Exception as e:
                     STATE["last_error"] = f"{sym} {tf}: {e}"
         time.sleep(POLL_SEC)
@@ -283,6 +385,8 @@ def _acquire_lock(path):
 
 
 def start_background(get_settings, lock_path):
+    global _sent_path
+    _sent_path = str(Path(lock_path).with_name("signal_sent.json"))
     if not _acquire_lock(lock_path):
         return False
     threading.Thread(target=_loop, args=(get_settings,), daemon=True, name="signal-engine").start()
