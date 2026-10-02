@@ -732,11 +732,19 @@ def admin_signal_test():
     return jsonify({"ok": ok, "error": err})
 
 
-@app.route("/api/admin/signal/latest", methods=["POST"])
+@app.route("/api/admin/signal/latest", methods=["GET", "POST"])
 @admin_required
 def admin_signal_latest():
-    """Send the latest signal of each symbol/timeframe to the group now and list what the engine sees."""
+    """Send the latest signal of each symbol/timeframe to the group now and list what the engine sees.
+    Open in the browser while logged in at /admin (GET works too)."""
     return jsonify(signal_engine.send_latest(db_read().get("settings") or {}))
+
+
+@app.route("/api/admin/signal/check", methods=["GET"])
+@admin_required
+def admin_signal_check():
+    """Diagnostics only (sends nothing): config seen by the engine, engine state, latest signals found."""
+    return jsonify(signal_engine.send_latest(db_read().get("settings") or {}, do_send=False))
 
 
 @app.route("/api/admin/bakong/test", methods=["POST"])
@@ -796,6 +804,16 @@ def err_500(e):
         500,
     )
 
+
+
+BUILD = "goldfx-v4"
+print(f"[boot] Gold Fx build {BUILD}", flush=True)
+
+
+@app.route("/api/version")
+def api_version():
+    """Public: tells which code version is really running on the server."""
+    return jsonify({"build": BUILD, "signal_engine_running": bool(signal_engine.STATE.get("running"))})
 
 
 signal_engine.start_background(

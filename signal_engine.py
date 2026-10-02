@@ -240,6 +240,7 @@ def _cfg(get_settings):
 
 
 _sent_path = None
+_hb = [0.0]
 
 
 def _load_sent() -> dict:
@@ -271,16 +272,25 @@ def _ict(ms: float) -> str:
     return time.strftime("%d %b %H:%M", time.gmtime(ms / 1000 + 7 * 3600))
 
 
-def send_latest(settings: dict) -> dict:
+def send_latest(settings: dict, do_send: bool = True) -> dict:
     """Admin tool: send the most recent signal of every symbol/timeframe to the group right now
     (ignores age) and report what was found, so it can be compared with TradingView."""
     s = settings or {}
     tok = str(s.get("TG_BOT_TOKEN") or "").strip()
     ch = str(s.get("SIGNAL_CHANNEL_ID") or "").strip()
     thread = str(s.get("SIGNAL_THREAD_ID") or "").strip() or None
-    if not (tok and ch):
-        return {"ok": False, "error": "Bot Token / Channel ID missing", "found": [], "sent": 0}
-    _, _, _, syms, tfs = _cfg(lambda: s)
+    _, _, on, syms, tfs = _cfg(lambda: s)
+    cfg = {
+        "token_set": bool(tok),
+        "channel_id": ch or "(empty)",
+        "enabled": on,
+        "symbols": syms,
+        "timeframes": tfs,
+        "engine_running": bool(STATE.get("running")),
+        "state": dict(STATE),
+    }
+    if do_send and not (tok and ch):
+        return {"ok": False, "error": "Bot Token / Channel ID missing", "found": [], "sent": 0, "config": cfg}
     params = load_params(s)
     found, sent, err = [], 0, ""
     for sym in syms:
@@ -294,20 +304,22 @@ def send_latest(settings: dict) -> dict:
                     continue
                 last = sigs[-1]
                 found.append(f"{sym} {tf}: {last['side']} @ {last['entry']:.2f} · candle {_ict(last['t'])} ICT")
-                ok, e = send(tok, ch, format_signal(sym, tf, last, price), thread)
-                if ok:
-                    sent += 1
-                else:
-                    err = e
+                if do_send:
+                    ok, e = send(tok, ch, format_signal(sym, tf, last, price), thread)
+                    if ok:
+                        sent += 1
+                    else:
+                        err = e
             except Exception as ex:
                 err = f"{sym} {tf}: {ex}"
-    return {"ok": not err, "error": err, "found": found, "sent": sent}
+    return {"ok": not err, "error": err, "found": found, "sent": sent, "config": cfg}
 
 
 def _loop(get_settings):
     last_kl = {}
     seen = _load_sent()
     STATE["running"] = True
+    print("[signal] engine started", flush=True)
     while True:
         try:
             tok, ch, on, syms, tfs = _cfg(get_settings)
@@ -323,9 +335,18 @@ def _loop(get_settings):
             time.sleep(POLL_SEC)
             continue
         if not (tok and ch and on):
+            why = ("SIGNAL_ENABLED=0 (បិទ signal)" if not on else
+                   "Bot Token មិនទាន់ដាក់" if not tok else "Channel ID មិនទាន់ដាក់")
+            if STATE.get("last_error") != why:
+                STATE["last_error"] = why
+                print(f"[signal] engine idle: {why}", flush=True)
             time.sleep(POLL_SEC)
             continue
         now = time.time()
+        if now - _hb[0] > 300:                       # heartbeat in the server log every 5 min
+            _hb[0] = now
+            print(f"[signal] alive · {STATE.get('last_price','-')} · found={STATE.get('last_found')} · "
+                  f"sent_total={STATE.get('sent_count')} · err={STATE.get('last_error') or '-'}", flush=True)
         for sym in syms:
             for tf in tfs:
                 k = (sym, tf)
@@ -388,6 +409,7 @@ def start_background(get_settings, lock_path):
     global _sent_path
     _sent_path = str(Path(lock_path).with_name("signal_sent.json"))
     if not _acquire_lock(lock_path):
+        print("[signal] engine NOT started in this worker (another worker owns the lock)", flush=True)
         return False
     threading.Thread(target=_loop, args=(get_settings,), daemon=True, name="signal-engine").start()
     return True
