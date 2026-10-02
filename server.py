@@ -806,7 +806,7 @@ def err_500(e):
 
 
 
-BUILD = "goldfx-v4"
+BUILD = "goldfx-v5"
 print(f"[boot] Gold Fx build {BUILD}", flush=True)
 
 

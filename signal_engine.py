@@ -50,6 +50,7 @@ def market(path: str, timeout: int = 6, budget: int | None = None, **_kwargs):
     """Fetch Binance public market data. `budget` = max mirrors to try (optional)."""
     global _good
     last = None
+    errs = []
     n_try = len(BASES) if budget is None else max(1, min(int(budget), len(BASES)))
     for n in range(n_try):
         i = (_good + n) % len(BASES)
@@ -64,7 +65,8 @@ def market(path: str, timeout: int = 6, budget: int | None = None, **_kwargs):
             return data
         except Exception as e:
             last = e
-    raise last if last else RuntimeError("market data unavailable")
+            errs.append(f"{BASES[i].split('/')[2]}: {e}")
+    raise RuntimeError(" | ".join(errs)) if errs else (last or RuntimeError("market data unavailable"))
 
 
 def load_params(settings: dict) -> dict:
@@ -221,6 +223,22 @@ def send(token: str, chat_id: str, text: str, thread_id: str | None = None, _ret
         return False, str(e)
 
 
+_TF_NUM = {"1": "1m", "3": "3m", "5": "5m", "15": "15m", "30": "30m",
+           "60": "1h", "120": "2h", "240": "4h", "1440": "1d"}
+
+
+def _norm_tf(x: str) -> str:
+    """Accept TradingView-style timeframes: 5 -> 5m, 60 -> 1h, 240 -> 4h, D -> 1d, 1H -> 1h."""
+    x = str(x).strip().lower().replace(" ", "")
+    if x in _TF_NUM:
+        return _TF_NUM[x]
+    if x in ("d", "1day"):
+        return "1d"
+    if x in ("h", "1hour"):
+        return "1h"
+    return x
+
+
 def _cfg(get_settings):
     s = get_settings() or {}
     tok = str(s.get("TG_BOT_TOKEN") or "").strip()
@@ -231,11 +249,13 @@ def _cfg(get_settings):
         for x in str(s.get("SIGNAL_SYMBOLS") or "PAXGUSDT").split(",")
         if x.strip()
     ]
-    tfs = [
-        x.strip()
-        for x in str(s.get("SIGNAL_TIMEFRAMES") or "5m,15m,1h").split(",")
-        if x.strip()
-    ]
+    tfs = []
+    for x in str(s.get("SIGNAL_TIMEFRAMES") or "5m,15m,1h").replace(";", ",").split(","):
+        x = _norm_tf(x)
+        if x and x in TF_SEC and x not in tfs:
+            tfs.append(x)
+    if not tfs:
+        tfs = ["5m", "15m", "1h"]
     return tok, ch, on, syms, tfs
 
 
