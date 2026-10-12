@@ -449,8 +449,8 @@ _TV_SEEN: dict = {}
 def _source(st: dict) -> str:
     """'tradingview' (default): signals come from TradingView alerts via webhook.
     'engine': the built-in Binance engine detects and posts signals itself."""
-    v = str((st or {}).get("SIGNAL_SOURCE") or os.environ.get("SIGNAL_SOURCE") or "tradingview").strip().lower()
-    return "engine" if v in ("engine", "auto", "binance") else "tradingview"
+    v = str((st or {}).get("SIGNAL_SOURCE") or os.environ.get("SIGNAL_SOURCE") or "engine").strip().lower()
+    return "tradingview" if v in ("tradingview", "tv", "webhook") else "engine"
 
 
 def _num(v):
@@ -593,10 +593,14 @@ def _acquire_lock(path):
 def start_background(get_settings, lock_path):
     global _sent_path
     _sent_path = str(Path(lock_path).with_name("signal_sent.json"))
-    if not _acquire_lock(lock_path):
-        print("[signal] engine NOT started in this worker (another worker owns the lock)", flush=True)
-        return False
-    threading.Thread(target=_loop, args=(get_settings,), daemon=True, name="signal-engine").start()
+
+    def runner():
+        # keep retrying: if another process holds the lock (old worker / redeploy), take over when it exits
+        while not _acquire_lock(lock_path):
+            time.sleep(15)
+        _loop(get_settings)
+
+    threading.Thread(target=runner, daemon=True, name="signal-engine").start()
     return True
 
 

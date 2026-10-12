@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: gold-fx
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 120
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        value: admin123
+      - key: SIGNAL_SOURCE
+        value: engine
+      - key: TG_BOT_TOKEN
+        sync: false
+      - key: SIGNAL_CHANNEL_ID
+        sync: false   # e.g. -100xxxxxxxxxx
+      # Optional: only set if you attach a Disk at /var/data
+      # - key: DATA_DIR
+      #   value: /var/data

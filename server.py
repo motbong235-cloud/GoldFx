@@ -119,6 +119,16 @@ def admin_required(fn):
     return wrapper
 
 
+def _signal_settings() -> dict:
+    """DB settings, with Render env vars as fallback (db.json is wiped on redeploy without a Disk)."""
+    s = dict(db_read().get("settings") or {})
+    for k in ("TG_BOT_TOKEN", "SIGNAL_CHANNEL_ID", "SIGNAL_THREAD_ID", "SIGNAL_SOURCE",
+              "SIGNAL_ENABLED", "SIGNAL_TIMEFRAMES", "SIGNAL_SYMBOLS", "SIGNAL_MAX_AGE_BARS"):
+        if not str(s.get(k) or "").strip() and os.environ.get(k):
+            s[k] = os.environ[k]
+    return s
+
+
 def gen_key() -> str:
     p = lambda: "".join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(4))
     return f"GF-{p()}-{p()}-{p()}"
@@ -712,7 +722,7 @@ def admin_settings():
 @app.route("/api/admin/signal/test", methods=["POST"])
 @admin_required
 def admin_signal_test():
-    st = db_read().get("settings") or {}
+    st = _signal_settings()
     tok = str(st.get("TG_BOT_TOKEN") or "").strip()
     ch = str(st.get("SIGNAL_CHANNEL_ID") or "").strip()
     if not tok or not ch:
@@ -756,7 +766,7 @@ def tv_webhook():
         got = str(pl.get("key") or pl.get("secret") or "") if isinstance(pl, dict) else ""
     if not sec or not secrets.compare_digest(str(got), sec):
         return jsonify({"ok": False, "error": "Unauthorized (open /api/admin/tv/info for the correct URL)"}), 401
-    code, body = signal_engine.handle_tv(raw, db_read().get("settings") or {})
+    code, body = signal_engine.handle_tv(raw, _signal_settings())
     return jsonify(body), code
 
 
@@ -768,7 +778,7 @@ def admin_tv_info():
     url = request.host_url.replace("http://", "https://").rstrip("/") + "/api/tv/webhook?key=" + sec
     return jsonify({
         "webhook_url": url,
-        "source": signal_engine._source(db_read().get("settings") or {}),
+        "source": signal_engine._source(_signal_settings()),
         "alert_message_simple": '{"side":"SELL","symbol":"{{ticker}}","tf":"{{interval}}","entry":{{close}}}',
         "alert_message_exact_pine": 'alert(\'{"side":"SELL","symbol":"\' + syminfo.ticker + \'","tf":"\' + timeframe.period + \'","entry":\' + str.tostring(close) + \',"sl":\' + str.tostring(SL) + \',"tp1":\' + str.tostring(TP1) + \',"tp2":\' + str.tostring(TP2) + \'}\', alert.freq_once_per_bar_close)',
     })
@@ -781,7 +791,7 @@ def admin_tv_test():
     code, body = signal_engine.handle_tv(
         '{"side":"SELL","symbol":"XAUUSD","tf":"5","entry":' + str(request.args.get("entry") or "0") + '}'
         if request.args.get("entry") else '{"side":"SELL","symbol":"XAUUSD","tf":"5"}',
-        db_read().get("settings") or {}, test=True)
+        _signal_settings(), test=True)
     return jsonify(body), code
 
 
@@ -790,14 +800,14 @@ def admin_tv_test():
 def admin_signal_latest():
     """Send the latest signal of each symbol/timeframe to the group now and list what the engine sees.
     Open in the browser while logged in at /admin (GET works too)."""
-    return jsonify(signal_engine.send_latest(db_read().get("settings") or {}))
+    return jsonify(signal_engine.send_latest(_signal_settings()))
 
 
 @app.route("/api/admin/signal/check", methods=["GET"])
 @admin_required
 def admin_signal_check():
     """Diagnostics only (sends nothing): config seen by the engine, engine state, latest signals found."""
-    return jsonify(signal_engine.send_latest(db_read().get("settings") or {}, do_send=False))
+    return jsonify(signal_engine.send_latest(_signal_settings(), do_send=False))
 
 
 @app.route("/api/admin/bakong/test", methods=["POST"])
@@ -869,9 +879,7 @@ def api_version():
     return jsonify({"build": BUILD, "signal_engine_running": bool(signal_engine.STATE.get("running"))})
 
 
-signal_engine.start_background(
-    lambda: db_read().get("settings") or {}, DATA_DIR / "signal.lock"
-)
+signal_engine.start_background(_signal_settings, DATA_DIR / "signal.lock")
 
 
 def _payment_watcher():
