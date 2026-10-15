@@ -12,13 +12,16 @@
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <style>
 :root{
-  --bg:#060a11;--panel:#0c121c;--card:#121a28;--elev:#182234;
-  --line:rgba(148,163,184,.12);--line2:rgba(251,191,36,.2);
-  --text:#eef2f7;--muted:#8b9cb3;--faint:#5b6b82;
-  --cyan:#22d3ee;--blue:#3b82f6;--green:#34d399;--red:#f87171;
-  --orange:#fb923c;--gold:#fbbf24;--purple:#a78bfa;
-  --font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
-  --r:14px;--safe:env(safe-area-inset-bottom,0px);
+  /* TradingView-inspired palette */
+  --bg:#0c0e15;--panel:#131722;--card:#1e222d;--elev:#2a2e39;
+  --line:rgba(42,46,57,.95);--line2:rgba(41,98,255,.35);
+  --text:#d1d4dc;--muted:#787b86;--faint:#4c525e;
+  --cyan:#2962ff;--blue:#2962ff;--green:#26a69a;--red:#ef5350;
+  --orange:#ff9800;--gold:#f0b90b;--purple:#9c27b0;
+  --tv-up:#26a69a;--tv-down:#ef5350;--tv-cross:#9598a1;
+  --font:'Inter',-apple-system,BlinkMacSystemFont,'Trebuchet MS',Roboto,Ubuntu,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+  --r:6px;--safe:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
@@ -215,6 +218,132 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
   background:linear-gradient(90deg,#fbbf24,#22d3ee);animation:plSlide 1s ease-in-out infinite}
 @keyframes plPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 @keyframes plSlide{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+
+/* ===== TradingView polish ===== */
+body{background:var(--bg);color:var(--text)}
+.top{
+  height:48px;padding:0 10px;gap:10px;border-bottom:1px solid var(--elev);
+  background:var(--panel);backdrop-filter:none;
+}
+.logo{gap:8px}
+.logo-icon{border-radius:4px}
+.pair-label{
+  font-size:14px;font-weight:700;color:var(--text);letter-spacing:.02em;
+  padding:4px 8px;border-radius:4px;background:transparent;
+}
+.price-live{
+  font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:-.02em;
+}
+.price-live.up{color:var(--tv-up)!important}
+.price-live.down{color:var(--tv-down)!important}
+.price-chg{
+  font-size:12px;font-weight:600;font-family:var(--mono);margin-left:6px;
+}
+.price-chg.up{color:var(--tv-up)}
+.price-chg.down{color:var(--tv-down)}
+.icon-btn{
+  width:34px;height:34px;border-radius:4px;background:transparent;border:none;
+  color:var(--muted);
+}
+.icon-btn:hover{background:var(--elev);color:var(--text)}
+.badge-pro{
+  background:#2962ff;color:#fff;font-size:10px;padding:2px 6px;border-radius:3px;
+  font-weight:700;letter-spacing:.04em;
+}
+.toolbar{
+  background:var(--panel);border-bottom:1px solid var(--elev);padding:4px 6px;gap:6px;
+}
+.tf-bar{
+  background:transparent;border:none;padding:0;margin:0;gap:2px;border-radius:0;
+}
+.tf-bar button{
+  min-width:36px;height:28px;padding:0 8px;border-radius:4px;font-size:12px;
+  font-weight:600;color:var(--muted);background:transparent;border:none;
+}
+.tf-bar button:hover{background:var(--elev);color:var(--text)}
+.tf-bar button.on{
+  background:var(--elev);color:var(--text);box-shadow:none;
+  border:1px solid transparent;
+}
+.gear{
+  width:32px;height:32px;border-radius:4px;background:transparent;border:none;color:var(--muted);
+}
+.gear:hover,.gear[aria-expanded="true"]{background:var(--elev);color:var(--text)}
+.pop{
+  background:var(--card);border:1px solid var(--elev);border-radius:6px;
+  box-shadow:0 8px 24px rgba(0,0,0,.45);
+}
+.notice{
+  background:transparent;border:none;color:var(--muted);font-size:11px;margin:2px 8px;
+}
+.status-row{gap:6px;padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--elev)}
+.stat-card{
+  background:var(--card);border:1px solid var(--elev);border-radius:6px;padding:8px 10px;
+}
+.stat-card .label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+.stat-card .val{font-family:var(--mono);font-size:13px;font-weight:600}
+#tv_chart,#lw_chart,div[id="tv_chart"]{
+  background:#131722!important;border:none;
+}
+.side{background:var(--panel);border-color:var(--elev)}
+.side-tabs{background:var(--panel);border-bottom:1px solid var(--elev)}
+.side-tabs button{font-size:12px;font-weight:600;color:var(--muted);padding:12px 8px}
+.side-tabs button.on{color:var(--text);border-bottom-color:#2962ff}
+.side-body{background:var(--bg);padding:10px}
+
+/* TV-style signal cards */
+.tv-sig{
+  background:var(--card);border:1px solid var(--elev);border-radius:6px;
+  padding:12px;margin-bottom:8px;transition:border-color .15s;
+}
+.tv-sig:hover{border-color:#363a45}
+.tv-sig-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.tv-sig-side{
+  font-size:11px;font-weight:800;letter-spacing:.06em;padding:3px 8px;border-radius:3px;
+}
+.tv-sig-side.BUY{background:rgba(38,166,154,.15);color:var(--tv-up)}
+.tv-sig-side.SELL{background:rgba(239,83,80,.15);color:var(--tv-down)}
+.tv-sig-time{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.tv-sig-pair{font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px}
+.tv-sig-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;font-size:12px;
+}
+.tv-sig-grid .k{color:var(--muted)}
+.tv-sig-grid .v{font-family:var(--mono);font-weight:600;text-align:right;color:var(--text)}
+.tv-sig-grid .v.up{color:var(--tv-up)}
+.tv-sig-grid .v.down{color:var(--tv-down)}
+.tv-sig-rr{
+  margin-top:8px;padding-top:8px;border-top:1px solid var(--elev);
+  display:flex;justify-content:space-between;font-size:11px;color:var(--muted);
+}
+.tv-sig-rr strong{color:var(--text);font-family:var(--mono)}
+.tv-empty{text-align:center;padding:28px 12px;color:var(--muted);font-size:12px;line-height:1.5}
+.alerts-head{display:flex;gap:6px;margin-bottom:10px}
+.alerts-head button{
+  flex:1;height:32px;border-radius:4px;font-size:12px;font-weight:600;
+  background:var(--card);border:1px solid var(--elev);color:var(--text);
+}
+.alerts-head button.clear{color:var(--muted)}
+.alerts-head button:hover{border-color:#363a45}
+.bottom-nav{
+  background:var(--panel);border-top:1px solid var(--elev);
+}
+.bottom-nav button{color:var(--muted);font-size:10px;gap:3px}
+.bottom-nav button.on{color:#2962ff}
+.drive-bar{height:4px;border-radius:2px;overflow:hidden;background:var(--elev)}
+.drive-bar .buy{background:var(--tv-up)}
+.drive-bar .sell{background:var(--tv-down)}
+.modal{background:var(--panel);border-color:var(--elev);border-radius:12px 12px 0 0}
+.gate-card{background:var(--panel);border-color:var(--elev);border-radius:12px}
+input,select{background:var(--card);border-color:var(--elev);border-radius:6px;color:var(--text)}
+input:focus,select:focus{border-color:#2962ff}
+.toast{background:var(--card);border:1px solid var(--elev);color:var(--text);border-radius:6px}
+.hint{color:var(--muted);font-size:11px;margin-top:10px;line-height:1.4}
+@media(min-width:960px){
+  .layout{grid-template-columns:1fr 320px}
+  .side{width:320px}
+}
+
 </style>
 </head>
 <body>
@@ -237,7 +366,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
     <span class="badge-pro hidden" id="proBadge">PRO</span>
   </div>
   <span class="pair-label">XAUUSD</span>
-  <span class="price-live" id="livePrice">—</span>
+  <span class="price-live" id="livePrice">—</span><span class="price-chg" id="priceChg"></span>
   <div class="top-right">
     <button class="icon-btn" type="button" onclick="openLiveChat()" title="Live Chat" aria-label="Live Chat">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
@@ -315,15 +444,20 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 
   <aside class="side">
     <div class="side-tabs">
-      <button type="button" class="on" data-tab="alerts">Alerts</button>
+      <button type="button" class="on" data-tab="signals" onclick="switchSideTab('signals')">Signals</button>
+      <button type="button" data-tab="alerts" onclick="switchSideTab('alerts')">Alerts</button>
     </div>
-    <div class="side-body" id="tab-alerts">
+    <div class="side-body" id="tab-signals">
+      <div id="signalsList"><div class="tv-empty">កំពុងរង់ចាំ signal…<br>Sweep swing · close back → BUY/SELL</div></div>
+      <p class="hint">Signal ដូច TradingView · Entry · SL · TP1/TP2 · R:R</p>
+    </div>
+    <div class="side-body hidden" id="tab-alerts">
       <div class="alerts-head">
-        <button type="button" onclick="enablePush()">Alerts បិទហើយ</button>
+        <button type="button" onclick="enablePush()">Enable push</button>
         <button type="button" class="clear" onclick="clearAlerts()">Clear all</button>
       </div>
       <div id="alertsList"></div>
-      <p class="hint">Signal នឹងបង្ហាញនៅទីនេះ ពេលមាន signal ពី indicator</p>
+      <p class="hint">Alerts ពី price / signal</p>
     </div>
   </aside>
 </div>
@@ -387,6 +521,30 @@ let TG_FAMILY = 'https://t.me/';
 let TG_BOT = 'https://t.me/';
 let CURRENT = null;
 let _payPoll = null;
+
+
+let _lastPx = null;
+function updateLivePrice(px, chg){
+  const el = document.getElementById('livePrice');
+  const cg = document.getElementById('priceChg');
+  if(!el) return;
+  const n = Number(px);
+  if(!Number.isFinite(n)){ el.textContent='—'; return; }
+  el.textContent = n.toFixed(2);
+  el.classList.remove('up','down');
+  if(_lastPx!=null){
+    if(n>_lastPx) el.classList.add('up');
+    else if(n<_lastPx) el.classList.add('down');
+  }
+  _lastPx = n;
+  if(cg){
+    if(chg==null || !Number.isFinite(Number(chg))){ cg.textContent=''; return; }
+    const c = Number(chg);
+    cg.textContent = (c>=0?'+':'') + c.toFixed(2) + '%';
+    cg.classList.toggle('up', c>=0);
+    cg.classList.toggle('down', c<0);
+  }
+}
 
 async function api(path, opt={}){
   const r = await fetch('/api/'+path, {
@@ -462,14 +620,61 @@ function syncBars(){
 }
 
 /* ========== Signal chart (Entry / SL / TP1 / TP2 on the dashboard) ========== */
-const SIG = { swing: 10, slBuf: 0.5, rr1: 1, rr2: 2, len: 40, maxShown: 15, et2: 0.78, keyLen: 16, txtOff: 4, slN: 10, minWick: 0, minRisk: 0, maxRisk: 0 };   // slN = candles counted back for SL
+const SIG = { swing: 10, slBuf: 0.5, rr1: 1, rr2: 2, len: 40, maxShown: 15, et2: 0.78, keyLen: 16, txtOff: 4, slN: 10, minWick: 0, minRisk: 0, maxRisk: 0 };
+
+function switchSideTab(tab){
+  document.querySelectorAll('.side-tabs button').forEach(b=>{
+    b.classList.toggle('on', b.getAttribute('data-tab')===tab);
+  });
+  const sig = document.getElementById('tab-signals');
+  const al = document.getElementById('tab-alerts');
+  if(sig) sig.classList.toggle('hidden', tab!=='signals');
+  if(al) al.classList.toggle('hidden', tab!=='alerts');
+}
+function fmtPx(n){
+  const x = Number(n);
+  if(!Number.isFinite(x)) return '—';
+  return x >= 100 ? x.toFixed(2) : x.toFixed(3);
+}
+function renderSignalsList(sigs){
+  const el = document.getElementById('signalsList');
+  if(!el) return;
+  const list = (sigs||[]).slice(-12).reverse();
+  if(!list.length){
+    el.innerHTML = '<div class="tv-empty">No signals yet<br>Waiting for liquidity sweep…</div>';
+    return;
+  }
+  el.innerHTML = list.map(s=>{
+    const side = s.side==='BUY'?'BUY':'SELL';
+    const risk = Math.abs(Number(s.entry)-Number(s.sl))||0;
+    const reward = Math.abs(Number(s.tp1)-Number(s.entry))||0;
+    const rr = risk ? (reward/risk).toFixed(2) : '—';
+    const t = s.t ? new Date((s.t - (typeof TZ_OFF!=='undefined'?TZ_OFF:0))*1000).toLocaleString('en-GB',{month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+    return `<div class="tv-sig">
+      <div class="tv-sig-head">
+        <span class="tv-sig-side ${side}">${side}</span>
+        <span class="tv-sig-time">${t}</span>
+      </div>
+      <div class="tv-sig-pair">XAUUSD · ${interval||'15'}m</div>
+      <div class="tv-sig-grid">
+        <span class="k">Entry</span><span class="v">${fmtPx(s.entry)}</span>
+        <span class="k">Stop Loss</span><span class="v down">${fmtPx(s.sl)}</span>
+        <span class="k">Take Profit 1</span><span class="v up">${fmtPx(s.tp1)}</span>
+        <span class="k">Take Profit 2</span><span class="v up">${fmtPx(s.tp2)}</span>
+      </div>
+      <div class="tv-sig-rr"><span>Risk : Reward</span><strong>1 : ${rr}</strong></div>
+    </div>`;
+  }).join('');
+}
+   // slN = candles counted back for SL
 //   // et2 = Et 2 sits at 78% of the way from SL to Et 1
 let viewMode = 'signal';                 // 'signal' | 'tv'
 try{ const v = localStorage.getItem('goldfx_view'); if(v === 'tv' || v === 'signal') viewMode = v; }catch(e){}
 let KL = [];                             // klines of the current timeframe
 let viewTheme = 'light';                // TradingView-like white chart; 'dark' also available
 try{ const t = localStorage.getItem('goldfx_theme'); if(t === 'dark' || t === 'light') viewTheme = t; }catch(e){}
-let lw = null;                           // {chart, main, extras:[]}
+let lw = null;
+let lastSignals = [];                           // {chart, main, extras:[]}
 const TZ_OFF = 7 * 3600;                 // Asia/Phnom_Penh (lightweight-charts shows UTC)
 
 function ivSeconds(){
@@ -494,6 +699,12 @@ function clearOk(wick, risk){
   return !((SIG.minWick && wick < SIG.minWick) || (SIG.minRisk && risk < SIG.minRisk) || (SIG.maxRisk && risk > SIG.maxRisk));
 }
 function findSignals(bars){
+  const __out = _findSignalsImpl(bars);
+  lastSignals = __out;
+  try{ renderSignalsList(__out); }catch(e){}
+  return __out;
+}
+function _findSignalsImpl(bars){
   const L = SIG.swing, out = [];
   let lastHigh = null, lastHighIdx = -1, highSwept = true;
   let lastLow = null, lastLowIdx = -1, lowSwept = true;
@@ -583,6 +794,8 @@ function lwCreate(el){
 }
 // TradingView-style text labels + markers, drawn over the chart
 function paintOverlay(){
+  try{ if(typeof lastSignals!=="undefined") renderSignalsList(lastSignals); }catch(e){}
+
   const o = lw; if(!o || !o.main) return;
   const cv = o.cv, el = o.el;
   const w = el.clientWidth, h = el.clientHeight, dpr = window.devicePixelRatio || 1;
@@ -838,12 +1051,29 @@ function setFeed(ok, sub){
 }
 
 let _lastShown = 0;
-function renderLevels(price){
+function renderLevels(price, openOrChg){
   if(!price) return;
   const el = document.getElementById('livePrice');
+  if(!el) return;
   el.textContent = fmt(price);
-  if(_lastShown && price !== _lastShown) el.classList.toggle('dn', price < _lastShown);
+  el.classList.remove('up','down','dn');
+  if(_lastShown && price !== _lastShown){
+    el.classList.add(price > _lastShown ? 'up' : 'down');
+  }
   _lastShown = price;
+  const cg = document.getElementById('priceChg');
+  if(cg && openOrChg != null && Number.isFinite(Number(openOrChg))){
+    let pct;
+    if(Math.abs(Number(openOrChg)) < 50){ // treat as percent already
+      pct = Number(openOrChg);
+    } else {
+      const o = Number(openOrChg);
+      pct = o ? ((price - o) / o) * 100 : 0;
+    }
+    cg.textContent = (pct>=0?'+':'') + pct.toFixed(2) + '%';
+    cg.classList.toggle('up', pct>=0);
+    cg.classList.toggle('down', pct<0);
+  }
 }
 
 
