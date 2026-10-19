@@ -344,6 +344,73 @@ input:focus,select:focus{border-color:#2962ff}
   .side{width:320px}
 }
 
+
+/* ===== Signal cards v2 + Join Group ===== */
+.risk-banner{
+  display:flex;align-items:flex-start;gap:8px;padding:8px 12px;margin:0;
+  background:rgba(239,83,80,.08);border-bottom:1px solid rgba(239,83,80,.25);
+  font-size:11px;line-height:1.4;color:var(--muted);
+}
+.risk-banner strong{color:var(--red);font-weight:800}
+.sig-filters{display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px 4px}
+.sig-filters button{
+  padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;
+  background:var(--elev);color:var(--muted);border:1px solid transparent;
+}
+.sig-filters button.on{background:rgba(41,98,255,.2);color:#90b4ff;border-color:rgba(41,98,255,.35)}
+.tv-sig{
+  margin:8px 10px;padding:12px;border-radius:10px;background:var(--card);
+  border:1px solid var(--elev);transition:border-color .15s, transform .15s;
+}
+.tv-sig:hover{border-color:rgba(41,98,255,.4);transform:translateY(-1px)}
+.tv-sig-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.tv-sig-side{
+  font-size:11px;font-weight:800;letter-spacing:.06em;padding:3px 8px;border-radius:4px;
+}
+.tv-sig-side.BUY{background:rgba(38,166,154,.18);color:var(--tv-up)}
+.tv-sig-side.SELL{background:rgba(239,83,80,.18);color:var(--tv-down)}
+.tv-sig-time{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.tv-sig-pair{font-size:12px;font-weight:700;margin-bottom:8px;color:var(--text)}
+.tv-sig-grid{
+  display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:11px;margin-bottom:8px;
+}
+.tv-sig-grid .k{color:var(--muted)}
+.tv-sig-grid .v{font-family:var(--mono);font-weight:700;text-align:right}
+.tv-sig-grid .v.up{color:var(--tv-up)}
+.tv-sig-grid .v.down{color:var(--tv-down)}
+.tv-sig-rr{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:11px;color:var(--muted);padding-top:6px;border-top:1px solid var(--elev);
+}
+.tv-sig-rr strong{color:var(--text);font-family:var(--mono)}
+.tv-sig-actions{display:flex;gap:6px;margin-top:10px}
+.tv-sig-actions button,.btn-join{
+  flex:1;padding:8px 10px;border-radius:6px;font-size:11px;font-weight:800;
+  background:#2962ff;color:#fff;
+}
+.tv-sig-actions button.ghost{
+  background:transparent;border:1px solid var(--elev);color:var(--text);
+}
+.tv-empty{padding:24px 16px;text-align:center;color:var(--muted);font-size:12px;line-height:1.5}
+.join-modal-backdrop{
+  position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);
+  display:flex;align-items:center;justify-content:center;padding:16px;
+}
+.join-modal{
+  width:100%;max-width:400px;background:var(--panel);border:1px solid var(--elev);
+  border-radius:12px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.5);
+}
+.join-modal h3{padding:14px 16px 0;font-size:16px;font-weight:800}
+.join-modal .body{padding:12px 16px;font-size:13px;line-height:1.5;color:var(--muted)}
+.join-modal .rules{font-size:12px;margin:8px 0;padding:10px;border-radius:8px;background:var(--card);border:1px solid var(--elev)}
+.join-modal .actions{display:flex;flex-direction:column;gap:8px;padding:0 16px 16px}
+.join-modal .actions a, .join-modal .actions button{
+  display:block;text-align:center;padding:12px;border-radius:8px;font-weight:800;font-size:13px;
+}
+.join-modal .actions a.primary{background:#2962ff;color:#fff}
+.join-modal .actions button.secondary{background:var(--elev);color:var(--text)}
+.join-modal .disclaimer{font-size:10px;color:var(--faint);padding:0 16px 14px;line-height:1.4}
+
 </style>
 </head>
 <body>
@@ -636,12 +703,57 @@ function fmtPx(n){
   if(!Number.isFinite(x)) return '—';
   return x >= 100 ? x.toFixed(2) : x.toFixed(3);
 }
+let __sigFilter = 'ALL';
+let __lastSigs = [];
+function filterSignals(f){
+  __sigFilter = f || 'ALL';
+  document.querySelectorAll('#sigFilters button[data-f]').forEach(b=>{
+    b.classList.toggle('on', b.getAttribute('data-f')===__sigFilter);
+  });
+  renderSignalsList(__lastSigs);
+}
+function openJoinGroup(){
+  let box = document.getElementById('joinGroupModal');
+  if(!box){
+    box = document.createElement('div');
+    box.id = 'joinGroupModal';
+    box.className = 'join-modal-backdrop';
+    box.onclick = (e)=>{ if(e.target===box) box.remove(); };
+    document.body.appendChild(box);
+  }
+  const tg = (window.__GF_TELEGRAM || '').trim();
+  const href = tg ? (tg.startsWith('http')?tg:('https://t.me/'+tg.replace(/^@/,''))) : '#';
+  box.innerHTML = `<div class="join-modal" role="dialog" aria-label="Join signal group">
+    <h3>Join Gold Fx Signal Group</h3>
+    <div class="body">Get XAUUSD BUY/SELL alerts, entry / SL / TP levels, and community updates.</div>
+    <div class="rules">
+      <b>Rules</b><br>
+      · No financial advice — trade at your own risk<br>
+      · Do not share invite links publicly without permission<br>
+      · Respect other members
+    </div>
+    <div class="actions">
+      <a class="primary" href="${href}" target="_blank" rel="noopener">${tg ? 'Open Telegram Group' : 'Telegram link not set'}</a>
+      <button type="button" class="secondary" onclick="copyGroupLink()">Copy invite link</button>
+      <button type="button" class="secondary" onclick="document.getElementById('joinGroupModal').remove()">Close</button>
+    </div>
+    <p class="disclaimer">Past performance does not guarantee future results. You may lose some or all of your capital.</p>
+  </div>`;
+}
+function copyGroupLink(){
+  const tg = (window.__GF_TELEGRAM || '').trim();
+  const href = tg ? (tg.startsWith('http')?tg:('https://t.me/'+tg.replace(/^@/,''))) : location.href;
+  navigator.clipboard.writeText(href).then(()=>alert('Copied')).catch(()=>prompt('Copy:', href));
+}
 function renderSignalsList(sigs){
   const el = document.getElementById('signalsList');
   if(!el) return;
-  const list = (sigs||[]).slice(-12).reverse();
+  __lastSigs = sigs || [];
+  let list = __lastSigs.slice(-20).reverse();
+  if(__sigFilter==='BUY') list = list.filter(s=>s.side==='BUY');
+  if(__sigFilter==='SELL') list = list.filter(s=>s.side==='SELL');
   if(!list.length){
-    el.innerHTML = '<div class="tv-empty">No signals yet<br>Waiting for liquidity sweep…</div>';
+    el.innerHTML = '<div class="tv-empty">No signals yet<br>Waiting for liquidity sweep on the chart…<br><button type="button" class="btn-join" style="margin-top:12px;display:inline-block;width:auto;padding:8px 14px" onclick="openJoinGroup()">Join Group</button></div>';
     return;
   }
   el.innerHTML = list.map(s=>{
@@ -650,12 +762,12 @@ function renderSignalsList(sigs){
     const reward = Math.abs(Number(s.tp1)-Number(s.entry))||0;
     const rr = risk ? (reward/risk).toFixed(2) : '—';
     const t = s.t ? new Date((s.t - (typeof TZ_OFF!=='undefined'?TZ_OFF:0))*1000).toLocaleString('en-GB',{month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
-    return `<div class="tv-sig">
+    return `<article class="tv-sig" aria-label="${side} signal">
       <div class="tv-sig-head">
         <span class="tv-sig-side ${side}">${side}</span>
         <span class="tv-sig-time">${t}</span>
       </div>
-      <div class="tv-sig-pair">XAUUSD · ${interval||'15'}m</div>
+      <div class="tv-sig-pair">XAUUSD · ${typeof interval!=='undefined'?interval:'15'} · Gold Fx</div>
       <div class="tv-sig-grid">
         <span class="k">Entry</span><span class="v">${fmtPx(s.entry)}</span>
         <span class="k">Stop Loss</span><span class="v down">${fmtPx(s.sl)}</span>
@@ -663,7 +775,11 @@ function renderSignalsList(sigs){
         <span class="k">Take Profit 2</span><span class="v up">${fmtPx(s.tp2)}</span>
       </div>
       <div class="tv-sig-rr"><span>Risk : Reward</span><strong>1 : ${rr}</strong></div>
-    </div>`;
+      <div class="tv-sig-actions">
+        <button type="button" onclick="openJoinGroup()">Join Group</button>
+        <button type="button" class="ghost" onclick="switchSideTab('signals')">Details</button>
+      </div>
+    </article>`;
   }).join('');
 }
    // slN = candles counted back for SL

@@ -592,6 +592,17 @@ def activate_key():
 
 
 # ---------- Admin ----------
+
+
+@app.route("/api/public/config")
+def public_config():
+    st = db_read().get("settings") or {}
+    return jsonify({
+        "site": st.get("SITE_NAME") or "Gold Fx",
+        "telegram": st.get("TELEGRAM") or os.environ.get("TELEGRAM_GROUP") or "",
+        "telegram_bot": st.get("TELEGRAM_BOT") or "",
+    })
+
 @app.route("/api/admin/login", methods=["POST"])
 def admin_login():
     body = request.get_json(force=True, silent=True) or {}
