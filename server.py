@@ -309,7 +309,7 @@ def indicator():
 
 
 @app.route("/api/config")
-def public_config():
+def api_public_config():
     st = db_read().get("settings") or {}
     return jsonify(
         {
@@ -594,11 +594,15 @@ def activate_key():
 # ---------- Admin ----------
 
 
+
 @app.route("/api/public/config")
-def public_config():
+def api_public_config_alias():
+    """Alias used by dashboard Join Group modal."""
     st = db_read().get("settings") or {}
     return jsonify({
+        "ok": True,
         "site": st.get("SITE_NAME") or "Gold Fx",
+        "site_name": st.get("SITE_NAME") or "Gold Fx",
         "telegram": st.get("TELEGRAM") or os.environ.get("TELEGRAM_GROUP") or "",
         "telegram_bot": st.get("TELEGRAM_BOT") or "",
     })
@@ -880,7 +884,7 @@ def err_500(e):
 
 
 
-BUILD = "goldfx-v6"
+BUILD = "goldfx-v7-deploy-notify"
 print(f"[boot] Gold Fx build {BUILD}", flush=True)
 
 
@@ -890,7 +894,53 @@ def api_version():
     return jsonify({"build": BUILD, "signal_engine_running": bool(signal_engine.STATE.get("running"))})
 
 
+
+def _notify_deploy_to_group():
+    """Optional: post update summary to Telegram group after deploy/boot."""
+    try:
+        st = db_read().get("settings") or {}
+        token = (st.get("TELEGRAM_BOT") or st.get("TG_BOT_TOKEN") or os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
+        chat = (st.get("TELEGRAM") or os.environ.get("TELEGRAM_GROUP") or "").strip()
+        if not token or not chat:
+            print("[boot] deploy notify skipped (no TELEGRAM_BOT / TELEGRAM group)", flush=True)
+            return
+        if chat.startswith("@"):
+            chat_id = chat
+        elif chat.startswith("http"):
+            # https://t.me/xxx or joinchat — cannot post without numeric id
+            print("[boot] deploy notify needs numeric chat id or @channel username", flush=True)
+            return
+        else:
+            chat_id = chat
+        import urllib.request
+        text = (
+            f"🚀 <b>Gold Fx updated</b>\n"
+            f"Build: <code>{BUILD}</code>\n"
+            f"• Trading terminal UI (signals + Join Group)\n"
+            f"• Risk disclaimer on signals panel\n"
+            f"• Public config API fixed\n"
+            f"• Chart: Lightweight Charts (XAUUSD)\n"
+            f"⚠️ Signals are not financial advice."
+        )
+        body = json.dumps({"chat_id": chat_id, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True}).encode()
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=12) as r:
+            print(f"[boot] deploy notify sent → {chat_id} status={r.status}", flush=True)
+    except Exception as e:
+        print(f"[boot] deploy notify failed: {e}", flush=True)
+
+
 signal_engine.start_background(_signal_settings, DATA_DIR / "signal.lock")
+try:
+    _notify_deploy_to_group()
+except Exception as _e:
+    print(f"[boot] notify err {_e}", flush=True)
+
 
 
 def _payment_watcher():
